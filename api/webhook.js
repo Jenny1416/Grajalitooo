@@ -1,37 +1,25 @@
 module.exports = (req, res) => {
-
   const body = req.body || {};
 
-  const intent =
-    body?.queryResult?.intent?.displayName || "";
+  const intent = body?.queryResult?.intent?.displayName || "";
+  const intentNormalizado = normalizar(intent);
 
-  const params =
-    body?.queryResult?.parameters || {};
+  const params = body?.queryResult?.parameters || {};
 
-  const alimento = normalizar(
-    params.alimento || ""
-  );
-
-  const vino = normalizar(
-    params.vino || ""
-  );
-
-  const bodega = normalizar(
-    params.bodega || ""
-  );
+  const alimento = normalizar(params.alimento || params.Alimento || "");
+  const vino = normalizar(params.vino || params.Vino || "");
+  const bodega = normalizar(params.bodega || params.Bodega || "");
 
   const red = {
-
     alimentos: {
-
-      "salmón": "Pescado",
       "salmon": "Pescado",
-      "trucha": "Pescado",
+      "salmón": "Pescado",
       "pescado": "Pescado",
+      "trucha": "Pescado",
 
       "mariscos": "Mariscos",
-      "langostinos": "Mariscos",
       "camarones": "Mariscos",
+      "langostinos": "Mariscos",
 
       "carne roja": "Carne Roja",
       "filete": "Carne Roja",
@@ -40,221 +28,114 @@ module.exports = (req, res) => {
 
       "pasta": "Pasta",
       "lasaña": "Pasta"
-
     },
 
     recomendaciones: {
-
       "Pescado": {
-
         vino: "ChardonnayPremium",
-
-        descripcion:
-          "un vino blanco fresco y ácido ideal para pescados"
-
+        descripcion: "un vino blanco fresco y ácido ideal para pescados"
       },
-
       "Mariscos": {
-
         vino: "ChardonnayPremium",
-
-        descripcion:
-          "un vino blanco ligero que acompaña muy bien mariscos"
-
+        descripcion: "un vino blanco ligero que acompaña muy bien mariscos"
       },
-
       "Carne Roja": {
-
         vino: "CabernetReserva",
-
-        descripcion:
-          "un vino tinto tánico perfecto para carnes intensas"
-
+        descripcion: "un vino tinto tánico perfecto para carnes intensas"
       },
-
       "Pasta": {
-
         vino: "RoseGrajales",
-
-        descripcion:
-          "un vino rosado afrutado que combina bien con pasta"
-
+        descripcion: "un vino rosado afrutado que combina bien con pasta"
       }
-
     },
 
     vinos: {
-
       "cabernetreserva": {
-
         tipo: "Vino Tinto",
-
         uva: "Cabernet Sauvignon",
-
         perfil: "Tánico"
-
       },
-
       "chardonnaypremium": {
-
         tipo: "Vino Blanco",
-
         uva: "Chardonnay",
-
         perfil: "Ácido"
-
       },
-
       "rosegrajales": {
-
         tipo: "Vino Rosado",
-
         uva: "Uva Rosada",
-
         perfil: "Afrutado"
-
       }
-
     },
 
     bodegas: {
-
       "casagrajales": {
-
-        vinos: [
-          "ChardonnayPremium",
-          "RoseGrajales"
-        ]
-
+        vinos: ["ChardonnayPremium", "RoseGrajales"]
       },
-
+      "casa grajales": {
+        vinos: ["ChardonnayPremium", "RoseGrajales"]
+      },
       "bodegaandes": {
-
-        vinos: [
-          "CabernetReserva"
-        ]
-
+        vinos: ["CabernetReserva"]
+      },
+      "bodega andes": {
+        vinos: ["CabernetReserva"]
       }
-
     }
-
   };
 
-  /* ===================================================== */
-  /* MARIDAJE */
-  /* ===================================================== */
-
-  if (
-    intent.includes("maridaje") ||
-    intent.includes("recomendar")
-  ) {
-
-    const categoria =
-      red.alimentos[alimento];
+  if (intentNormalizado.includes("maridaje") || intentNormalizado.includes("recomendar")) {
+    const categoria = red.alimentos[alimento];
 
     if (!categoria) {
-
       return res.status(200).json({
-
-        fulfillmentText:
-          `No encontré una recomendación para ${params.alimento}.`
-
+        fulfillmentText: `No encontré una recomendación para ${params.alimento}. Puedes preguntarme por salmón, pescado, mariscos, carne roja o pasta.`
       });
-
     }
 
-    const recomendacion =
-      red.recomendaciones[categoria];
+    const recomendacion = red.recomendaciones[categoria];
 
     return res.status(200).json({
-
-      fulfillmentText:
-
-        `Te recomiendo ${recomendacion.vino}, ${recomendacion.descripcion}.`
-
+      fulfillmentText: `Te recomiendo ${recomendacion.vino}, ${recomendacion.descripcion}.`
     });
-
   }
 
-  /* ===================================================== */
-  /* TIPO DE VINO */
-  /* ===================================================== */
-
-  if (
-    intent.includes("tipo.vino")
-  ) {
-
-    const info =
-      red.vinos[vino];
+  if (intentNormalizado.includes("tipo") && intentNormalizado.includes("vino")) {
+    const info = red.vinos[vino];
 
     if (!info) {
-
       return res.status(200).json({
-
-        fulfillmentText:
-          `No encontré información sobre ${params.vino}.`
-
+        fulfillmentText: `No encontré información sobre ${params.vino}.`
       });
-
     }
 
     return res.status(200).json({
-
-      fulfillmentText:
-
-        `${params.vino} es un ${info.tipo} elaborado con ${info.uva} y tiene un perfil ${info.perfil}.`
-
+      fulfillmentText: `${params.vino} es un ${info.tipo}, elaborado con ${info.uva} y con perfil ${info.perfil}.`
     });
-
   }
 
-  /* ===================================================== */
-  /* BODEGAS */
-  /* ===================================================== */
-
-  if (
-    intent.includes("bodega")
-  ) {
-
-    const info =
-      red.bodegas[bodega];
+  if (intentNormalizado.includes("bodega")) {
+    const info = red.bodegas[bodega];
 
     if (!info) {
-
       return res.status(200).json({
-
-        fulfillmentText:
-          `No encontré información sobre ${params.bodega}.`
-
+        fulfillmentText: `No encontré información sobre ${params.bodega}.`
       });
-
     }
 
     return res.status(200).json({
-
-      fulfillmentText:
-
-        `${params.bodega} produce los vinos ${info.vinos.join(", ")}.`
-
+      fulfillmentText: `${params.bodega} produce los vinos ${info.vinos.join(", ")}.`
     });
-
   }
 
   return res.status(200).json({
-
-    fulfillmentText:
-      "No encontré una relación adecuada en la red semántica."
-
+    fulfillmentText: `No encontré una relación adecuada en la red semántica. Intent recibido: ${intent}`
   });
-
 };
 
 function normalizar(texto) {
-
   return String(texto || "")
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .trim();
-
 }
