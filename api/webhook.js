@@ -97,18 +97,18 @@ module.exports = (req, res) => {
       if (!info?.uva) {
         return res.status(200).json({
           fulfillmentText: elegir([
-            `No encontré la uva asociada a ${vinoRaw || "ese vino"}. ¿Puedes verificar el nombre?`,
-            `Aún no tengo registrada la uva de ${vinoRaw || "ese vino"}. Prueba con CabernetReserva, ChardonnayPremium o RoseGrajales.`,
-            `No veo información de la uva para ${vinoRaw || "ese vino"}. Dime el vino exacto y lo reviso.`
+            `Mmm… revisé mi red y no encuentro la uva asociada a ${vinoRaw || "ese vino"}. ¿Me lo puedes escribir tal cual aparece?`,
+            `Todavía no tengo registrada la uva de ${vinoRaw || "ese vino"}. Si quieres, prueba con CabernetReserva, ChardonnayPremium o RoseGrajales.`,
+            `No me aparece la relación HECHO_DE para ${vinoRaw || "ese vino"}. ¿Cuál vino es exactamente?`
           ])
         });
       }
 
       return res.status(200).json({
         fulfillmentText: elegir([
-          `${vinoRaw || "Ese vino"} está hecho de ${info.uva}.`,
-          `La uva de ${vinoRaw || "ese vino"} es ${info.uva}.`,
-          `${vinoRaw || "Ese vino"} se elabora con ${info.uva}.`
+          `Buen dato para empezar: ${vinoRaw || "ese vino"} está hecho con ${info.uva}. ¿Quieres que también te diga su tipo y perfil?`,
+          `En mi red, ${vinoRaw || "ese vino"} se elabora con ${info.uva}. Si me dices con qué lo vas a acompañar, te sugiero maridaje.`,
+          `La uva de ${vinoRaw || "ese vino"} es ${info.uva}. Si quieres, puedo contarte qué otros vinos comparten esa uva.`
         ])
       });
     }
@@ -121,9 +121,9 @@ module.exports = (req, res) => {
       if (vinosHechosDe.length === 0) {
         return res.status(200).json({
           fulfillmentText: elegir([
-            `No encontré vinos hechos con ${uvaRaw || "esa uva"}. ¿La escribiste igual que en la red?`,
-            `Por ahora no tengo vinos asociados a ${uvaRaw || "esa uva"}. Prueba con Cabernet Sauvignon o Chardonnay.`,
-            `No veo vinos vinculados a ${uvaRaw || "esa uva"}. Si me dices otra uva, lo intento de nuevo.`
+            `Busqué por ${uvaRaw || "esa uva"} y no encontré vinos asociados. ¿Te refieres a Cabernet Sauvignon o Chardonnay?`,
+            `Por ahora mi red no tiene vinos hechos con ${uvaRaw || "esa uva"}. Si me dices otra uva, lo intento.`,
+            `No encuentro coincidencias para ${uvaRaw || "esa uva"}. Ojo: ayuda escribirla tal cual (por ejemplo: "Cabernet Sauvignon").`
           ])
         });
       }
@@ -132,18 +132,18 @@ module.exports = (req, res) => {
 
       return res.status(200).json({
         fulfillmentText: elegir([
-          `Con ${uvaRaw || "esa uva"} se elaboran: ${formatearLista(nombresBonitos)}.`,
-          `Los vinos que encontré hechos con ${uvaRaw || "esa uva"} son ${formatearLista(nombresBonitos)}.`,
-          `En la red, ${uvaRaw || "esa uva"} aparece en estos vinos: ${formatearLista(nombresBonitos)}.`
+          `Si te gusta la uva ${uvaRaw || "esa uva"}, te van a interesar estos vinos: ${formatearLista(nombresBonitos)}.`,
+          `Listo, esto es lo que me da la red para ${uvaRaw || "esa uva"}: ${formatearLista(nombresBonitos)}. ¿Quieres que te describa alguno?`,
+          `En mi red semántica, ${uvaRaw || "esa uva"} aparece conectada a: ${formatearLista(nombresBonitos)}.`
         ])
       });
     }
 
     return res.status(200).json({
       fulfillmentText: elegir([
-        `Puedo responder dos cosas: (1) la uva de un vino y (2) qué vinos usan una uva. Ejemplos: "¿De qué uva está hecho CabernetReserva?" o "¿Qué vinos usan Chardonnay?"`,
-        `¿Buscas la uva de un vino o los vinos de una uva? Prueba: "¿Cuál es la uva de RoseGrajales?" / "¿Qué vinos usan Cabernet Sauvignon?"`,
-        `Dime un vino (CabernetReserva, ChardonnayPremium, RoseGrajales) o una uva (Cabernet Sauvignon, Chardonnay) y te contesto con la relación HECHO_DE.`
+        `¡Claro! Puedo decirte la uva de un vino o, al revés, qué vinos se hacen con una uva. Ejemplos: "¿De qué uva está hecho CabernetReserva?" o "¿Qué vinos usan Chardonnay?"`,
+        `Dime un vino (CabernetReserva, ChardonnayPremium, RoseGrajales) o una uva (Cabernet Sauvignon, Chardonnay) y lo conecto en la red para responderte.`,
+        `¿Qué prefieres: empezar por el vino o por la uva? Con cualquiera puedo seguir el arco HECHO_DE.`
       ])
     });
   }
@@ -154,9 +154,9 @@ module.exports = (req, res) => {
     if (!categoria) {
       return res.status(200).json({
         fulfillmentText: elegir([
-          `No encontré una recomendación para "${alimentoRaw || params.alimento || "ese alimento"}". Prueba con salmón/pescado, mariscos, carne roja o pasta.`,
-          `Aún no tengo esa comida en la red: "${alimentoRaw || params.alimento || "ese alimento"}". Puedo recomendar para pescado, mariscos, carne roja o pasta.`,
-          `No identifiqué "${alimentoRaw || params.alimento || "ese alimento"}" como categoría conocida. ¿Te refieres a pescado, mariscos, carne roja o pasta?`
+          `Todavía no tengo "${alimentoRaw || params.alimento || "ese alimento"}" en mi red de comidas. ¿Te va bien si lo intentamos con pescado, mariscos, carne roja o pasta?`,
+          `No reconozco "${alimentoRaw || params.alimento || "eso"}" como categoría en la red. Dame una pista: ¿es pescado, mariscos, carne roja o pasta?`,
+          `Me faltó ese nodo de comida: "${alimentoRaw || params.alimento || "eso"}". Prueba con salmón/pescado, mariscos, carne roja o pasta y te recomiendo algo.`
         ])
       });
     }
@@ -165,9 +165,9 @@ module.exports = (req, res) => {
 
     return res.status(200).json({
       fulfillmentText: elegir([
-        `Para ${alimentoRaw || params.alimento || "eso"} (categoría: ${categoria}), te sugiero ${recomendacion.vino}: ${recomendacion.descripcion}.`,
-        `Buena elección. Con ${alimentoRaw || params.alimento || "eso"} suele funcionar ${recomendacion.vino}, porque es ${recomendacion.descripcion}.`,
-        `Mi recomendación de maridaje para ${alimentoRaw || params.alimento || "eso"} es ${recomendacion.vino}. En la red está marcado como una opción ${recomendacion.descripcion}.`
+        `¡Vamos a maridar! Para ${alimentoRaw || params.alimento || "eso"}, mi apuesta es ${recomendacion.vino}: ${recomendacion.descripcion}.`,
+        `Con ${alimentoRaw || params.alimento || "eso"} yo me iría por ${recomendacion.vino}. En la red encaja porque es ${recomendacion.descripcion}.`,
+        `Si quieres una combinación fácil de acertar: ${recomendacion.vino}. Va muy bien con ${alimentoRaw || params.alimento || "eso"} porque es ${recomendacion.descripcion}.`
       ])
     });
   }
@@ -178,18 +178,18 @@ module.exports = (req, res) => {
     if (!info) {
       return res.status(200).json({
         fulfillmentText: elegir([
-          `No encontré información sobre "${vinoRaw || params.vino || "ese vino"}". ¿Quieres intentar con CabernetReserva, ChardonnayPremium o RoseGrajales?`,
-          `Aún no tengo registrado "${vinoRaw || params.vino || "ese vino"}" en la red. Prueba con uno de los vinos disponibles.`,
-          `No me aparece "${vinoRaw || params.vino || "ese vino"}". Si me lo escribes tal cual, lo vuelvo a buscar.`
+          `No me aparece "${vinoRaw || params.vino || "ese vino"}" en la red todavía. ¿Probamos con CabernetReserva, ChardonnayPremium o RoseGrajales?`,
+          `Todavía no tengo a "${vinoRaw || params.vino || "ese vino"}" en mi lista. Dime otro vino y con gusto te cuento su tipo, uva y perfil.`,
+          `No encuentro "${vinoRaw || params.vino || "ese vino"}". Si me lo escribes exacto, lo vuelvo a intentar.`
         ])
       });
     }
 
     return res.status(200).json({
       fulfillmentText: elegir([
-        `${vinoRaw || params.vino || "Ese vino"} es un ${info.tipo}, hecho con ${info.uva}, de perfil ${info.perfil}.`,
-        `En la red: ${vinoRaw || params.vino || "ese vino"} → ${info.tipo} → HECHO_DE ${info.uva} → perfil ${info.perfil}.`,
-        `${vinoRaw || params.vino || "Ese vino"} pertenece a la categoría ${info.tipo}; se elabora con ${info.uva} y su perfil es ${info.perfil}.`
+        `Te cuento: ${vinoRaw || params.vino || "ese vino"} es un ${info.tipo}. Se elabora con ${info.uva} y su perfil es ${info.perfil}.`,
+        `En pocas palabras, ${vinoRaw || params.vino || "ese vino"} va por el lado ${info.perfil}: es ${info.tipo} hecho con ${info.uva}.`,
+        `Según mi red: ${vinoRaw || params.vino || "ese vino"} es ${info.tipo}, HECHO_DE ${info.uva}, y con un perfil ${info.perfil}. ¿Quieres que te recomiende comida para acompañarlo?`
       ])
     });
   }
@@ -200,27 +200,27 @@ module.exports = (req, res) => {
     if (!info) {
       return res.status(200).json({
         fulfillmentText: elegir([
-          `No encontré información sobre "${bodegaRaw || params.bodega || "esa bodega"}". Prueba con Casa Grajales o Bodega Andes.`,
-          `Aún no tengo registrada la bodega "${bodegaRaw || params.bodega || "esa bodega"}". ¿Te refieres a Casa Grajales o Bodega Andes?`,
-          `No veo datos de "${bodegaRaw || params.bodega || "esa bodega"}" en la red. Dime el nombre exacto.`
+          `No ubico "${bodegaRaw || params.bodega || "esa bodega"}" en mi red todavía. ¿Te refieres a Casa Grajales o Bodega Andes?`,
+          `Mmm… esa bodega no me aparece: "${bodegaRaw || params.bodega || "esa bodega"}". Prueba con "Casa Grajales" o "Bodega Andes".`,
+          `No tengo registrada la bodega "${bodegaRaw || params.bodega || "esa bodega"}". Si me das el nombre exacto, la busco de nuevo.`
         ])
       });
     }
 
     return res.status(200).json({
       fulfillmentText: elegir([
-        `${bodegaRaw || params.bodega || "Esa bodega"} produce: ${formatearLista(info.vinos)}.`,
-        `Según la red, ${bodegaRaw || params.bodega || "esa bodega"} está vinculada a estos vinos: ${formatearLista(info.vinos)}.`,
-        `En producción por bodega: ${bodegaRaw || params.bodega || "esa bodega"} → ${formatearLista(info.vinos)}.`
+        `¡Encontrada! ${bodegaRaw || params.bodega || "Esa bodega"} tiene estos vinos en la red: ${formatearLista(info.vinos)}.`,
+        `Según mis conexiones, ${bodegaRaw || params.bodega || "esa bodega"} produce ${formatearLista(info.vinos)}. ¿Quieres saber de qué uva es alguno?`,
+        `En mi red semántica, ${bodegaRaw || params.bodega || "esa bodega"} está conectada (PRODUCIDO_POR) con: ${formatearLista(info.vinos)}.`
       ])
     });
   }
 
   return res.status(200).json({
     fulfillmentText: elegir([
-      `No encontré una relación adecuada en la red semántica para esa consulta. (Intent: ${intent})`,
-      `Aún no tengo cómo inferir eso con las relaciones actuales. Intent recibido: ${intent}`,
-      `No pude conectar conceptos suficientes para responder. Intent: ${intent}`
+      `Me quedé sin un camino claro en la red para responder eso. ¿Me lo reformulas con vino/uva/comida/bodega? (Intent: ${intent})`,
+      `Uff, aquí mi red no alcanza a inferir una respuesta. Si me dices un vino, una uva o una comida, lo conecto mejor. (Intent: ${intent})`,
+      `No logré conectar los nodos necesarios para esa pregunta. Prueba preguntándome por maridaje, uva, tipo de vino o bodega. (Intent: ${intent})`
     ])
   });
 };
