@@ -189,8 +189,11 @@ module.exports = (req, res) => {
     const perfilNormalizado = normalizar(perfilParam);
 
     // 1) Si el usuario dio un vino (nombre o "vino blanco/tinto/rosado"), devolvemos el perfil
-    const vinoTexto = String(params.vino || params.Vino || "").trim();
-    const vinoTextoNorm = normalizar(vinoTexto);
+    // Mismo criterio que consultar.bodega: Dialogflow a veces pone tinto/blanco/rosado en `tipo_*`, no en `vino`.
+    const vinoTexto = String(tipoVinoParam || params.vino || params.Vino || "").trim();
+    const queryTextNorm = normalizar(body.queryResult?.queryText || "");
+    const vinoTextoNorm =
+      `${normalizar(vinoTexto)} ${queryTextNorm}`.trim();
 
     // Caso 1a: vino específico (coincide con red.vinos por clave)
     if (vino) {
@@ -213,6 +216,17 @@ module.exports = (req, res) => {
       (vinoTextoNorm.includes("rosado") || vinoTextoNorm.includes("rose")) ? "Vino Rosado" :
       "";
 
+    const etiquetaTipoUsuario =
+      vinoTexto.trim()
+        ? vinoTexto
+        : tipoCanonico === "Vino Tinto"
+          ? "el vino tinto"
+          : tipoCanonico === "Vino Blanco"
+            ? "el vino blanco"
+            : tipoCanonico === "Vino Rosado"
+              ? "el vino rosado"
+              : tipoCanonico;
+
     if (tipoCanonico) {
       const perfiles = Object.values(red.vinos)
         .filter((info) => normalizar(info?.tipo) === normalizar(tipoCanonico))
@@ -223,9 +237,9 @@ module.exports = (req, res) => {
       if (perfilTipo) {
         return res.status(200).json({
           fulfillmentText: elegir([
-            `En general, ${vinoTexto} suele ir con un perfil ${perfilTipo}. ¿Quieres que te recomiende un vino específico?`,
-            `Para ${vinoTexto}, el perfil que tenemos registrado es ${perfilTipo}. ¿Buscas algo similar o algo diferente?`,
-            `Si hablamos de ${vinoTexto}, el perfil típico es ${perfilTipo}. Si me dices ${platoDe}, te hago una recomendación rápida.`
+            `En general, ${etiquetaTipoUsuario} suele ir con un perfil ${perfilTipo}. ¿Quieres que te recomiende un vino específico?`,
+            `Para ${etiquetaTipoUsuario}, el perfil que tenemos registrado es ${perfilTipo}. ¿Buscas algo similar o algo diferente?`,
+            `Si hablamos de ${etiquetaTipoUsuario}, el perfil típico es ${perfilTipo}. Si me dices ${platoDe}, te hago una recomendación rápida.`
           ])
         });
       }
