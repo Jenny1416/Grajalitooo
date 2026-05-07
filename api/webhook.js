@@ -85,9 +85,6 @@ module.exports = (req, res) => {
   };
 
   // Intent: consultar.uva
-  // Soporta:
-  // - "¿Cuál es la uva de <vino>?"  -> vino -> uva
-  // - "¿Qué vinos están hechos con <uva>?" -> uva -> vinos
   if (intentNormalizado.includes("consultar") && intentNormalizado.includes("uva")) {
     if (vino) {
       const info = red.vinos[vino];
