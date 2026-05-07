@@ -140,45 +140,17 @@ module.exports = (req, res) => {
   // - "¿Qué perfil tiene el vino tinto/blanco/rosado?" (tipo -> perfil)
   // - "¿Qué vino tiene perfil tánico?" / "¿Qué vino es ácido?" (perfil -> vinos)
   if (intentNormalizado.includes("consultar") && intentNormalizado.includes("perfil")) {
+    // A veces Dialogflow rellena `perfil` con algo genérico ("perfil") aunque el usuario
+    // realmente esté preguntando por el perfil de un vino. Por eso:
+    // - Priorizamos vino/tipo_vino primero
+    // - Solo tratamos `perfil` como filtro cuando sea uno de los perfiles esperados
     const perfilNormalizado = normalizar(perfilParam === "$perfil.original" ? "" : perfilParam);
 
-    // 1) Si el usuario dio un perfil, devolvemos vinos con ese perfil
-    if (perfilNormalizado) {
-      const perfilCanonico =
-        perfilNormalizado.includes("tanico") ? "Tánico" :
-        perfilNormalizado.includes("acido") ? "Ácido" :
-        perfilNormalizado.includes("afrutado") ? "Afrutado" :
-        perfilNormalizado.includes("seco") ? "Seco" :
-        "";
-
-      const vinosConPerfil = Object.entries(red.vinos)
-        .filter(([, info]) => normalizar(info?.perfil) === normalizar(perfilCanonico))
-        .map(([k]) => desnormalizarVino(k));
-
-      if (!perfilCanonico || vinosConPerfil.length === 0) {
-        return res.status(200).json({
-          fulfillmentText: elegir([
-            `Busqué por ${perfilDe} y no encontré vinos asociados todavía. Si me dices otro perfil (seco, ácido, afrutado o tánico), lo intento de nuevo.`,
-            `Por ahora no tengo vinos registrados con ${perfilDe}. ¿Quieres probar con "ácido" o "tánico"?`,
-            `No encontré coincidencias para ${perfilDe}. Prueba con seco, ácido, afrutado o tánico.`
-          ])
-        });
-      }
-
-      return res.status(200).json({
-        fulfillmentText: elegir([
-          `Si buscas ${perfilDe}, estos vinos te pueden gustar: ${formatearLista(vinosConPerfil)}.`,
-          `Claro: con ${perfilDe} tengo registrados ${formatearLista(vinosConPerfil)}. ¿Quieres que te recomiende uno según ${platoDe}?`,
-          `Perfecto, para ${perfilDe} te sugiero mirar ${formatearLista(vinosConPerfil)}. ¿Te interesa saber la uva de alguno?`
-        ])
-      });
-    }
-
-    // 2) Si el usuario dio un vino (nombre o "vino blanco/tinto/rosado"), devolvemos el perfil
+    // 1) Si el usuario dio un vino (nombre o "vino blanco/tinto/rosado"), devolvemos el perfil
     const vinoTexto = String(params.vino || params.Vino || "").trim();
     const vinoTextoNorm = normalizar(vinoTexto);
 
-    // Caso 2a: vino específico (coincide con red.vinos por clave)
+    // Caso 1a: vino específico (coincide con red.vinos por clave)
     if (vino) {
       const info = red.vinos[vino];
       if (info?.perfil) {
@@ -192,7 +164,7 @@ module.exports = (req, res) => {
       }
     }
 
-    // Caso 2b: tipo de vino (vino blanco/tinto/rosado)
+    // Caso 1b: tipo de vino (vino blanco/tinto/rosado)
     const tipoCanonico =
       vinoTextoNorm.includes("tinto") ? "Vino Tinto" :
       vinoTextoNorm.includes("blanco") ? "Vino Blanco" :
@@ -215,6 +187,38 @@ module.exports = (req, res) => {
           ])
         });
       }
+    }
+
+    // 2) Si el usuario dio un perfil "real", devolvemos vinos con ese perfil
+    const perfilCanonico =
+      perfilNormalizado.includes("tanico") ? "Tánico" :
+      perfilNormalizado.includes("acido") ? "Ácido" :
+      perfilNormalizado.includes("afrutado") ? "Afrutado" :
+      perfilNormalizado.includes("seco") ? "Seco" :
+      "";
+
+    if (perfilCanonico) {
+      const vinosConPerfil = Object.entries(red.vinos)
+        .filter(([, info]) => normalizar(info?.perfil) === normalizar(perfilCanonico))
+        .map(([k]) => desnormalizarVino(k));
+
+      if (vinosConPerfil.length === 0) {
+        return res.status(200).json({
+          fulfillmentText: elegir([
+            `Busqué por ${perfilDe} y no encontré vinos asociados todavía. Si me dices otro perfil (seco, ácido, afrutado o tánico), lo intento de nuevo.`,
+            `Por ahora no tengo vinos registrados con ${perfilDe}. ¿Quieres probar con "ácido" o "tánico"?`,
+            `No encontré coincidencias para ${perfilDe}. Prueba con seco, ácido, afrutado o tánico.`
+          ])
+        });
+      }
+
+      return res.status(200).json({
+        fulfillmentText: elegir([
+          `Si buscas ${perfilDe}, estos vinos te pueden gustar: ${formatearLista(vinosConPerfil)}.`,
+          `Claro: con ${perfilDe} tengo registrados ${formatearLista(vinosConPerfil)}. ¿Quieres que te recomiende uno según ${platoDe}?`,
+          `Perfecto, para ${perfilDe} te sugiero mirar ${formatearLista(vinosConPerfil)}. ¿Te interesa saber la uva de alguno?`
+        ])
+      });
     }
 
     return res.status(200).json({
