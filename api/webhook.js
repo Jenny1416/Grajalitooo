@@ -26,25 +26,6 @@ module.exports = (req, res) => {
   const tipoVinoDe = tipoVinoParam ? `el ${tipoVinoParam}` : "ese tipo de vino";
 
   const red = {
-    alimentos: {
-      "salmon": "Pescado",
-      "salmón": "Pescado",
-      "pescado": "Pescado",
-      "trucha": "Pescado",
-
-      "mariscos": "Mariscos",
-      "camarones": "Mariscos",
-      "langostinos": "Mariscos",
-
-      "carne roja": "Carne Roja",
-      "filete": "Carne Roja",
-      "entrecot": "Carne Roja",
-      "churrasco": "Carne Roja",
-
-      "pasta": "Pasta",
-      "lasaña": "Pasta"
-    },
-
     recomendaciones: {
       "Pescado": {
         vino: "ChardonnayPremium",
@@ -86,13 +67,7 @@ module.exports = (req, res) => {
       "casagrajales": {
         vinos: ["ChardonnayPremium", "RoseGrajales"]
       },
-      "casa grajales": {
-        vinos: ["ChardonnayPremium", "RoseGrajales"]
-      },
       "bodegaandes": {
-        vinos: ["CabernetReserva"]
-      },
-      "bodega andes": {
         vinos: ["CabernetReserva"]
       }
     }
@@ -158,7 +133,14 @@ module.exports = (req, res) => {
   }
 
   if (intentNormalizado.includes("maridaje") || intentNormalizado.includes("recomendar")) {
-    const categoria = red.alimentos[alimento];
+    // Dialogflow ya debería entregar la categoría (con sinónimos resueltos) en `params.alimento`.
+    // Normalizamos para mapear a las llaves de `red.recomendaciones`.
+    const categoria =
+      normalizarClave(alimentoParam) === "pescado" ? "Pescado" :
+      normalizarClave(alimentoParam) === "mariscos" ? "Mariscos" :
+      normalizarClave(alimentoParam) === "carneroja" ? "Carne Roja" :
+      normalizarClave(alimentoParam) === "pasta" ? "Pasta" :
+      "";
 
     if (!categoria) {
       return res.status(200).json({
@@ -228,12 +210,13 @@ module.exports = (req, res) => {
 
     const bodegasQueProducen = Object.entries(red.bodegas)
       .filter(([, b]) => {
-        const vinosBodega = (b?.vinos || []).map((v) => normalizar(v));
+        const vinosBodega = (b?.vinos || []).map((v) => normalizarClave(v));
         return vinosBodega.some((vk) => normalizar(red.vinos[vk]?.tipo) === normalizar(tipoCanonico));
       })
       .map(([k]) => k);
 
-    const bodegasBonitas = Array.from(new Set(bodegasQueProducen)).map(desnormalizarBodega);
+    const bodegasBonitas = dedupeNombres(bodegasQueProducen.map(desnormalizarBodega));
+    const hayAlimentoEnPregunta = Boolean(params.alimento || params.Alimento);
 
     if (bodegasBonitas.length === 0) {
       return res.status(200).json({
@@ -249,13 +232,15 @@ module.exports = (req, res) => {
       fulfillmentText: elegir([
         `Para ${tipoTexto || tipoVinoDe}, te puedo recomendar estas bodegas: ${formatearLista(bodegasBonitas)}. ¿Quieres que te sugiera un vino de alguna?`,
         `Si estás buscando ${tipoTexto || tipoVinoDe}, nuestras bodegas que aparecen con ese estilo son ${formatearLista(bodegasBonitas)}.`,
-        `Claro: para ${tipoTexto || tipoVinoDe}, tengo registradas estas bodegas: ${formatearLista(bodegasBonitas)}. ¿Te interesa una recomendación según ${platoDe}?`
+        hayAlimentoEnPregunta
+          ? `Claro: para ${tipoTexto || tipoVinoDe}, tengo registradas estas bodegas: ${formatearLista(bodegasBonitas)}. ¿Te interesa una recomendación según ${platoDe}?`
+          : `Claro: para ${tipoTexto || tipoVinoDe}, tengo registradas estas bodegas: ${formatearLista(bodegasBonitas)}. ¿Te antoja algo más fresco (blanco/rosado) o más intenso (tinto)?`
       ])
     });
   }
 
   if (intentNormalizado.includes("bodega")) {
-    const info = red.bodegas[bodega];
+    const info = red.bodegas[normalizarClave(bodegaParam)];
 
     if (!info) {
       return res.status(200).json({
@@ -293,6 +278,10 @@ function normalizar(texto) {
     .trim();
 }
 
+function normalizarClave(texto) {
+  return normalizar(texto).replace(/\s+/g, "");
+}
+
 function desnormalizarVino(clave) {
   // Mínimo para que "cabernetreserva" -> "CabernetReserva"
   // y "chardonnaypremium" -> "ChardonnayPremium"
@@ -303,9 +292,9 @@ function desnormalizarVino(clave) {
 
 function desnormalizarBodega(clave) {
   const s = String(clave || "").trim();
-  const n = normalizar(s);
-  if (n === "casagrajales" || n === "casa grajales") return "Casa Grajales";
-  if (n === "bodegaandes" || n === "bodega andes") return "Bodega Andes";
+  const n = normalizarClave(s);
+  if (n === "casagrajales") return "Casa Grajales";
+  if (n === "bodegaandes") return "Bodega Andes";
   if (!s) return s;
   return s[0].toUpperCase() + s.slice(1);
 }
@@ -322,4 +311,16 @@ function formatearLista(items) {
   if (xs.length === 1) return xs[0];
   if (xs.length === 2) return `${xs[0]} y ${xs[1]}`;
   return `${xs.slice(0, -1).join(", ")} y ${xs[xs.length - 1]}`;
+}
+
+function dedupeNombres(items) {
+  const vistos = new Set();
+  const out = [];
+  for (const it of items || []) {
+    const key = normalizar(it);
+    if (!key || vistos.has(key)) continue;
+    vistos.add(key);
+    out.push(it);
+  }
+  return out;
 }
