@@ -9,6 +9,7 @@ module.exports = (req, res) => {
   const alimento = normalizar(params.alimento || params.Alimento || "");
   const vino = normalizar(params.vino || params.Vino || "");
   const bodega = normalizar(params.bodega || params.Bodega || "");
+  const uva = normalizar(params.uva || params.Uva || params.uvA || params.UVA || "");
 
   const red = {
     alimentos: {
@@ -83,6 +84,53 @@ module.exports = (req, res) => {
     }
   };
 
+  // Intent: consultar.uva
+  // Soporta:
+  // - "¿Cuál es la uva de <vino>?"  -> vino -> uva
+  // - "¿Qué vinos están hechos con <uva>?" -> uva -> vinos
+  if (intentNormalizado.includes("consultar") && intentNormalizado.includes("uva")) {
+    if (vino) {
+      const info = red.vinos[vino];
+
+      if (!info?.uva) {
+        return res.status(200).json({
+          fulfillmentText: `No encontré información sobre la uva de ${params.vino || "ese vino"}.`
+        });
+      }
+
+      return res.status(200).json({
+        fulfillmentText: `${params.vino || "Ese vino"} está hecho de ${info.uva}.`
+      });
+    }
+
+    if (uva) {
+      const vinosHechosDe = Object.entries(red.vinos)
+        .filter(([, info]) => normalizar(info?.uva) === uva)
+        .map(([key]) => key);
+
+      if (vinosHechosDe.length === 0) {
+        return res.status(200).json({
+          fulfillmentText: `No encontré vinos hechos con ${params.uva || "esa uva"}.`
+        });
+      }
+
+      // Intentamos mostrar nombres "bonitos" si tenemos alguno en bodegas/recomendaciones;
+      // si no, devolvemos la clave (ya normalizada) como fallback.
+      const nombresBonitos = vinosHechosDe.map((v) => {
+        const match = Object.keys(red.vinos).find((k) => k === v);
+        return match ? desnormalizarVino(match) : v;
+      });
+
+      return res.status(200).json({
+        fulfillmentText: `Los vinos hechos con ${params.uva || "esa uva"} son: ${nombresBonitos.join(", ")}.`
+      });
+    }
+
+    return res.status(200).json({
+      fulfillmentText: `¿Quieres consultar la uva de un vino (por ejemplo: "¿De qué uva está hecho CabernetReserva?") o qué vinos usan una uva (por ejemplo: "¿Qué vinos usan Chardonnay?")?`
+    });
+  }
+
   if (intentNormalizado.includes("maridaje") || intentNormalizado.includes("recomendar")) {
     const categoria = red.alimentos[alimento];
 
@@ -138,4 +186,12 @@ function normalizar(texto) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .trim();
+}
+
+function desnormalizarVino(clave) {
+  // Mínimo para que "cabernetreserva" -> "CabernetReserva"
+  // y "chardonnaypremium" -> "ChardonnayPremium"
+  const s = String(clave || "").trim();
+  if (!s) return s;
+  return s[0].toUpperCase() + s.slice(1);
 }

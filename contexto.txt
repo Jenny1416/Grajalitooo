@@ -1,0 +1,61 @@
+Segundo parcial
+Integrante: 2
+Fecha entrega viernes 8
+Hora de 9:00 – 12:00 m
+Casa Grajales lo ha contratado para diseñar su red de bodegas y desea construir un sistema basado en redes semánticas que permita:
+Representar conocimiento sobre vinos, alimentos y sus relaciones. 
+Modelar asociaciones tipo “es-un” y “relacionado-con”. 
+Inferir recomendaciones de maridaje a partir de relaciones explícitas e implícitas. 
+A diferencia de una ontología formal, el sistema se basará en una estructura gráfica de nodos y arcos, donde el conocimiento se organiza de forma intuitiva y navegable.
+Por lo cual debe
+Modelar relaciones entre vinos, tipos de vino y comidas. 
+Permitir inferir recomendaciones mediante propagación en la red. 
+Soporte consultas basadas en conexiones semánticas. 
+Componentes de la red semántica
+🔵 Nodos (Conceptos)
+Bodega 
+Vino 
+Vino Tinto 
+Vino Blanco 
+Vino Rosado 
+Uva Cabernet Sauvignon 
+Uva Chardonnay 
+Carne Roja 
+Pescado 
+Pasta 
+Mariscos 
+Perfil: Seco, Ácido, Afrutado, Tánico 
+
+🔗 Tipos de relaciones (Arcos)
+ES_UN (jerarquía) 
+PRODUCIDO_POR 
+HECHO_DE 
+TIENE_PERFIL 
+ACOMPAÑA 
+ES_APROPIADO_PARA 
+
+Representación simplificada:
+Cabernet Sauvignon → ES_UN → Vino Tinto 
+Chardonnay → ES_UN → Vino Blanco 
+Vino Tinto → TIENE_PERFIL → Tánico 
+Vino Blanco → TIENE_PERFIL → Ácido 
+Vino Tinto → ACOMPAÑA → Carne Roja 
+Vino Blanco → ACOMPAÑA → Pescado 
+
+Ejemplo de instancias en la red
+Nodo: CabernetReserva 
+ES_UN → Vino Tinto 
+HECHO_DE → Cabernet Sauvignon 
+PRODUCIDO_POR → BodegaAndes 
+Nodo: ChardonnayPremium 
+ES_UN → Vino Blanco 
+HECHO_DE → Chardonnay 
+TIENE_PERFIL → Ácido 
+Nodo: SalmonALaParrilla 
+ES_UN → Pescado 
+
+Entrene la red en un agente (chatbot) generando diferentes tipos de preguntas como
+¿Qué vino acompaña bien al salmón?
+¿Qué vino se produce en la región x?
+
+El agente debe tener imágenes, link, y puede incuir código.
