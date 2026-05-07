@@ -12,18 +12,19 @@ module.exports = (req, res) => {
   const uva = normalizar(params.uva || params.Uva || params.uvA || params.UVA || "");
 
   // En respuestas donde queremos “repetir” lo que dijo el usuario, usamos el parámetro
-  // original de Dialogflow. Si no viene, usamos $entidad.original (para plantillas).
-  const alimentoParam = params.alimento || params.Alimento || "$alimento.original";
-  const vinoParam = params.vino || params.Vino || "$vino.original";
-  const uvaParam = params.uva || params.Uva || params.uvA || params.UVA || "$uva.original";
-  const bodegaParam = params.bodega || params.Bodega || "$bodega.original";
-  const perfilParam = params.perfil || params.Perfil || "$perfil.original";
+  // original de Dialogflow. En respuestas de webhook NO existe el reemplazo de $entidad.original,
+  // así que si no viene el parámetro, usamos fallback “natural” (sin placeholders).
+  const alimentoParam = String(params.alimento || params.Alimento || "").trim();
+  const vinoParam = String(params.vino || params.Vino || "").trim();
+  const uvaParam = String(params.uva || params.Uva || params.uvA || params.UVA || "").trim();
+  const bodegaParam = String(params.bodega || params.Bodega || "").trim();
+  const perfilParam = String(params.perfil || params.Perfil || "").trim();
 
-  const platoDe = `el plato de ${alimentoParam}`;
-  const vinoDe = `el vino ${vinoParam}`;
-  const uvaDe = `la uva ${uvaParam}`;
-  const bodegaDe = `la bodega ${bodegaParam}`;
-  const perfilDe = `el perfil ${perfilParam}`;
+  const platoDe = mencionarPlato(alimentoParam);
+  const vinoDe = mencionarVino(vinoParam);
+  const uvaDe = mencionarUva(uvaParam);
+  const bodegaDe = mencionarBodega(bodegaParam);
+  const perfilDe = mencionarPerfil(perfilParam);
   const tipoVinoParam = params.tipo || params.Tipo || params.tipo_vino || params.tipoVino || "";
   const tipoVinoDe = tipoVinoParam ? `el ${tipoVinoParam}` : "ese tipo de vino";
 
@@ -62,6 +63,16 @@ module.exports = (req, res) => {
         tipo: "Vino Rosado",
         uva: "Uva Rosada",
         perfil: "Afrutado"
+      },
+      "zinfandelgranreserva": {
+        tipo: "Vino Tinto",
+        uva: "Zinfandel",
+        perfil: "Tánico"
+      },
+      "pinotnoirreserva": {
+        tipo: "Vino Tinto",
+        uva: "Pinot noir",
+        perfil: "Seco"
       }
     },
 
@@ -70,7 +81,7 @@ module.exports = (req, res) => {
         vinos: ["ChardonnayPremium", "RoseGrajales"]
       },
       "bodegaandes": {
-        vinos: ["CabernetReserva"]
+        vinos: ["CabernetReserva", "ZinfandelGranReserva", "PinotNoirReserva"]
       }
     }
   };
@@ -144,7 +155,7 @@ module.exports = (req, res) => {
     // realmente esté preguntando por el perfil de un vino. Por eso:
     // - Priorizamos vino/tipo_vino primero
     // - Solo tratamos `perfil` como filtro cuando sea uno de los perfiles esperados
-    const perfilNormalizado = normalizar(perfilParam === "$perfil.original" ? "" : perfilParam);
+    const perfilNormalizado = normalizar(perfilParam);
 
     // 1) Si el usuario dio un vino (nombre o "vino blanco/tinto/rosado"), devolvemos el perfil
     const vinoTexto = String(params.vino || params.Vino || "").trim();
@@ -409,6 +420,26 @@ function formatearLista(items) {
   if (xs.length === 1) return xs[0];
   if (xs.length === 2) return `${xs[0]} y ${xs[1]}`;
   return `${xs.slice(0, -1).join(", ")} y ${xs[xs.length - 1]}`;
+}
+
+function mencionarPlato(valor) {
+  return valor ? `el plato de ${valor}` : "el plato que mencionas";
+}
+
+function mencionarVino(valor) {
+  return valor ? `el vino ${valor}` : "ese vino";
+}
+
+function mencionarUva(valor) {
+  return valor ? `la uva ${valor}` : "esa uva";
+}
+
+function mencionarBodega(valor) {
+  return valor ? `la bodega ${valor}` : "esa bodega";
+}
+
+function mencionarPerfil(valor) {
+  return valor ? `el perfil ${valor}` : "ese perfil";
 }
 
 function dedupeNombres(items) {
