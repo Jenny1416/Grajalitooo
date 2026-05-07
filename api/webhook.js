@@ -19,12 +19,14 @@ module.exports = (req, res) => {
   const uvaParam = String(params.uva || params.Uva || params.uvA || params.UVA || "").trim();
   const bodegaParam = String(params.bodega || params.Bodega || "").trim();
   const perfilParam = String(params.perfil || params.Perfil || "").trim();
+  const regionParam = String(params.region || params.Region || params.región || params.Región || "").trim();
 
   const platoDe = mencionarPlato(alimentoParam);
   const vinoDe = mencionarVino(vinoParam);
   const uvaDe = mencionarUva(uvaParam);
   const bodegaDe = mencionarBodega(bodegaParam);
   const perfilDe = mencionarPerfil(perfilParam);
+  const regionDe = mencionarRegion(regionParam);
   const tipoVinoParam = params.tipo || params.Tipo || params.tipo_vino || params.tipoVino || "";
   const tipoVinoDe = tipoVinoParam ? `el ${tipoVinoParam}` : "ese tipo de vino";
 
@@ -82,6 +84,35 @@ module.exports = (req, res) => {
       },
       "bodegaandes": {
         vinos: ["CabernetReserva", "ZinfandelGranReserva", "PinotNoirReserva"]
+      }
+    },
+
+    // Regiones (ejemplos). Puedes ajustar los vinos según tu ejercicio.
+    regiones: {
+      "pacifica": {
+        nombre: "Región Pacífica",
+        descripcion: "una zona costera y fresca, ideal para estilos ligeros y versátiles",
+        vinos: ["ChardonnayPremium", "RoseGrajales"]
+      },
+      "andina": {
+        nombre: "Región Andina",
+        descripcion: "una región de altura con noches frescas; suele favorecer tintos con buena estructura",
+        vinos: ["CabernetReserva", "PinotNoirReserva"]
+      },
+      "amazonica": {
+        nombre: "Región Amazónica",
+        descripcion: "una región cálida y húmeda; aquí te muestro ejemplos pensados para maridajes más tropicales",
+        vinos: ["RoseGrajales"]
+      },
+      "insular": {
+        nombre: "Región Insular",
+        descripcion: "una zona marítima; suelen preferirse vinos frescos para pescados y mariscos",
+        vinos: ["ChardonnayPremium"]
+      },
+      "orinoquia": {
+        nombre: "Región Orinoquía",
+        descripcion: "una región de llanura y clima cálido; aquí te comparto opciones con carácter y buena compañía de carnes",
+        vinos: ["CabernetReserva", "ZinfandelGranReserva"]
       }
     }
   };
@@ -237,6 +268,57 @@ module.exports = (req, res) => {
         `¡Claro! Dime un vino (por ejemplo ChardonnayPremium) o un tipo (vino tinto/blanco/rosado), o dime un perfil (seco, ácido, afrutado, tánico) y te respondo.`,
         `¿Qué te interesa: el perfil de un vino, o qué vinos encajan con un perfil? Puedo trabajar con seco, ácido, afrutado o tánico.`,
         `Para ayudarte: dime el vino o el perfil (seco/ácido/afrutado/tánico) y lo reviso.`
+      ])
+    });
+  }
+
+  // Intent: consultar.region
+  // Soporta:
+  // - "¿Qué vinos hay en la región pacífica?"
+  // - "Dame ejemplos de vinos de la región amazónica."
+  // - "¿Qué tipo de vino caracteriza a la región pacífica?"
+  if (intentNormalizado.includes("consultar") && intentNormalizado.includes("region")) {
+    const regionKey = normalizarRegion(regionParam);
+    const infoRegion = regionKey ? red.regiones[regionKey] : null;
+
+    if (!infoRegion) {
+      return res.status(200).json({
+        fulfillmentText: elegir([
+          `¡Claro! ¿De qué región te gustaría saber? Puedo ayudarte con Pacífica, Andina, Amazónica, Insular u Orinoquía.`,
+          `Con gusto. Dime la región (Pacífica, Andina, Amazónica, Insular u Orinoquía) y te digo qué vinos tengo registrados.`,
+          `¿Qué región quieres consultar? Por ejemplo: región pacífica, andina, amazónica, insular u orinoquía.`
+        ])
+      });
+    }
+
+    const vinosRegion = (infoRegion.vinos || []).filter(Boolean);
+    const vinosBonitos = vinosRegion.map((v) => String(v));
+
+    const preguntaPorTipo = intentNormalizado.includes("tipo") || normalizar(body?.queryResult?.queryText || "").includes("tipo");
+
+    if (preguntaPorTipo) {
+      const conteo = { "Vino Tinto": 0, "Vino Blanco": 0, "Vino Rosado": 0 };
+      for (const v of vinosRegion) {
+        const key = normalizarClave(v);
+        const tipo = red.vinos[key]?.tipo;
+        if (tipo && Object.prototype.hasOwnProperty.call(conteo, tipo)) conteo[tipo] += 1;
+      }
+      const tipoPredominante = Object.entries(conteo).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+
+      return res.status(200).json({
+        fulfillmentText: elegir([
+          `En ${infoRegion.nombre}, el estilo que más se repite en mi selección es ${tipoPredominante || "un mix de estilos"}. Si quieres, te doy ejemplos: ${formatearLista(vinosBonitos)}.`,
+          `Si hablamos de ${infoRegion.nombre}, lo más característico en mi catálogo es ${tipoPredominante || "una variedad de estilos"}. ¿Te muestro vinos concretos? ${formatearLista(vinosBonitos)}.`,
+          `Para ${infoRegion.nombre}, el tipo que mejor la representa (con lo que tengo registrado) es ${tipoPredominante || "una mezcla"}. Ejemplos: ${formatearLista(vinosBonitos)}.`
+        ])
+      });
+    }
+
+    return res.status(200).json({
+      fulfillmentText: elegir([
+        `¡Con gusto! En ${infoRegion.nombre} te puedo mostrar estos vinos: ${formatearLista(vinosBonitos)}. Es ${infoRegion.descripcion}. ¿Quieres que te recomiende uno según ${platoDe}?`,
+        `En ${infoRegion.nombre} tengo registrados ${formatearLista(vinosBonitos)}. En pocas palabras, es ${infoRegion.descripcion}. ¿Buscas tinto, blanco o rosado?`,
+        `Si te interesa ${infoRegion.nombre}, aquí van buenos ejemplos de mi selección: ${formatearLista(vinosBonitos)}. ${capitalizar(infoRegion.descripcion)}.`
       ])
     });
   }
@@ -440,6 +522,27 @@ function mencionarBodega(valor) {
 
 function mencionarPerfil(valor) {
   return valor ? `el perfil ${valor}` : "ese perfil";
+}
+
+function mencionarRegion(valor) {
+  return valor ? `la región ${valor}` : "esa región";
+}
+
+function normalizarRegion(valor) {
+  const n = normalizar(valor);
+  if (!n) return "";
+  if (n.includes("pacific")) return "pacifica";
+  if (n.includes("andin")) return "andina";
+  if (n.includes("amaz")) return "amazonica";
+  if (n.includes("insul")) return "insular";
+  if (n.includes("orino")) return "orinoquia";
+  return "";
+}
+
+function capitalizar(texto) {
+  const s = String(texto || "").trim();
+  if (!s) return s;
+  return s[0].toUpperCase() + s.slice(1);
 }
 
 function dedupeNombres(items) {
