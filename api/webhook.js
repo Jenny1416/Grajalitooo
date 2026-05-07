@@ -16,6 +16,11 @@ module.exports = (req, res) => {
   const bodegaRaw = String(params.bodega || params.Bodega || "").trim();
   const alimentoRaw = String(params.alimento || params.Alimento || "").trim();
 
+  const platoDe = alimentoRaw ? `el plato de ${alimentoRaw}` : "el plato de $alimento.original";
+  const vinoDe = vinoRaw ? `el vino ${vinoRaw}` : "el vino $vino.original";
+  const uvaDe = uvaRaw ? `la uva ${uvaRaw}` : "la uva $uva.original";
+  const bodegaDe = bodegaRaw ? `la bodega ${bodegaRaw}` : "la bodega $bodega.original";
+
   const red = {
     alimentos: {
       "salmon": "Pescado",
@@ -106,9 +111,9 @@ module.exports = (req, res) => {
 
       return res.status(200).json({
         fulfillmentText: elegir([
-          `Claro: ${vinoRaw || "ese vino"} se elabora con uva ${info.uva}. Si quieres, también te cuento su tipo (${info.tipo}) y su perfil (${info.perfil}).`,
-          `Te confirmo: ${vinoRaw || "ese vino"} está elaborado con ${info.uva}. ¿Lo vas a acompañar con algo? Dime el platillo y te recomiendo un maridaje.`,
-          `La uva de ${vinoRaw || "ese vino"} es ${info.uva}. Si te interesa, puedo decirte qué otros vinos de nuestra selección usan esa misma uva.`
+          `Claro: para ${vinoDe}, la uva es ${info.uva}. Si quieres, también te cuento su tipo (${info.tipo}) y su perfil (${info.perfil}).`,
+          `Te confirmo: ${vinoDe} está elaborado con ${info.uva}. ¿Lo vas a acompañar con algo? Dime ${platoDe} y te recomiendo un maridaje.`,
+          `La uva de ${vinoDe} es ${info.uva}. Si te interesa, puedo decirte qué otros vinos de nuestra selección usan esa misma uva.`
         ])
       });
     }
@@ -132,9 +137,9 @@ module.exports = (req, res) => {
 
       return res.status(200).json({
         fulfillmentText: elegir([
-          `Si te gusta la uva ${uvaRaw || "esa uva"}, te van a interesar estos vinos: ${formatearLista(nombresBonitos)}.`,
-          `Listo, esto es lo que me da la red para ${uvaRaw || "esa uva"}: ${formatearLista(nombresBonitos)}. ¿Quieres que te describa alguno?`,
-          `En mi red semántica, ${uvaRaw || "esa uva"} aparece conectada a: ${formatearLista(nombresBonitos)}.`
+          `Si te gusta ${uvaDe}, te van a interesar estos vinos: ${formatearLista(nombresBonitos)}.`,
+          `Listo, esto es lo que encontré para ${uvaDe}: ${formatearLista(nombresBonitos)}. ¿Quieres que te describa alguno?`,
+          `Perfecto: para ${uvaDe}, tengo registrados estos vinos: ${formatearLista(nombresBonitos)}.`
         ])
       });
     }
@@ -165,9 +170,9 @@ module.exports = (req, res) => {
 
     return res.status(200).json({
       fulfillmentText: elegir([
-        `¡Vamos a maridar! Para ${alimentoRaw || params.alimento || "eso"}, mi apuesta es ${recomendacion.vino}: ${recomendacion.descripcion}.`,
-        `Con ${alimentoRaw || params.alimento || "eso"} yo me iría por ${recomendacion.vino}. En la red encaja porque es ${recomendacion.descripcion}.`,
-        `Si quieres una combinación fácil de acertar: ${recomendacion.vino}. Va muy bien con ${alimentoRaw || params.alimento || "eso"} porque es ${recomendacion.descripcion}.`
+        `¡Vamos a maridar! Para ${platoDe}, mi apuesta es ${recomendacion.vino}: ${recomendacion.descripcion}.`,
+        `Con ${platoDe} yo me iría por ${recomendacion.vino}. Suele funcionar muy bien porque es ${recomendacion.descripcion}.`,
+        `Si quieres una combinación fácil de acertar: ${recomendacion.vino}. Va muy bien con ${platoDe} porque es ${recomendacion.descripcion}.`
       ])
     });
   }
@@ -209,9 +214,9 @@ module.exports = (req, res) => {
 
     return res.status(200).json({
       fulfillmentText: elegir([
-        `¡Claro! En ${bodegaRaw || params.bodega || "esa bodega"} puedes encontrar estos vinos: ${formatearLista(info.vinos)}. ¿Te interesa que te recomiende uno según tu comida?`,
-        `${bodegaRaw || params.bodega || "Esa bodega"} produce ${formatearLista(info.vinos)}. Si me dices cuál te llama la atención, te cuento su uva, tipo y perfil.`,
-        `Con gusto: los vinos de ${bodegaRaw || params.bodega || "esa bodega"} son ${formatearLista(info.vinos)}. ¿Buscas un vino blanco, tinto o rosado?`
+        `¡Claro! En ${bodegaDe} puedes encontrar estos vinos: ${formatearLista(info.vinos)}. ¿Te interesa que te recomiende uno según ${platoDe}?`,
+        `${bodegaDe} tiene en su selección ${formatearLista(info.vinos)}. Si me dices cuál te llama la atención, te cuento su uva, tipo y perfil.`,
+        `Con gusto: los vinos de ${bodegaDe} son ${formatearLista(info.vinos)}. ¿Buscas un vino blanco, tinto o rosado?`
       ])
     });
   }
