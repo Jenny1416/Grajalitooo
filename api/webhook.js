@@ -11,15 +11,17 @@ module.exports = (req, res) => {
   const bodega = normalizar(params.bodega || params.Bodega || "");
   const uva = normalizar(params.uva || params.Uva || params.uvA || params.UVA || "");
 
-  const vinoRaw = String(params.vino || params.Vino || "").trim();
-  const uvaRaw = String(params.uva || params.Uva || params.uvA || params.UVA || "").trim();
-  const bodegaRaw = String(params.bodega || params.Bodega || "").trim();
-  const alimentoRaw = String(params.alimento || params.Alimento || "").trim();
+  // En respuestas donde queremos “repetir” lo que dijo el usuario, usamos el parámetro
+  // original de Dialogflow. Si no viene, usamos $entidad.original (para plantillas).
+  const alimentoParam = params.alimento || params.Alimento || "$alimento.original";
+  const vinoParam = params.vino || params.Vino || "$vino.original";
+  const uvaParam = params.uva || params.Uva || params.uvA || params.UVA || "$uva.original";
+  const bodegaParam = params.bodega || params.Bodega || "$bodega.original";
 
-  const platoDe = alimentoRaw ? `el plato de ${alimentoRaw}` : "el plato de $alimento.original";
-  const vinoDe = vinoRaw ? `el vino ${vinoRaw}` : "el vino $vino.original";
-  const uvaDe = uvaRaw ? `la uva ${uvaRaw}` : "la uva $uva.original";
-  const bodegaDe = bodegaRaw ? `la bodega ${bodegaRaw}` : "la bodega $bodega.original";
+  const platoDe = `el plato de ${alimentoParam}`;
+  const vinoDe = `el vino ${vinoParam}`;
+  const uvaDe = `la uva ${uvaParam}`;
+  const bodegaDe = `la bodega ${bodegaParam}`;
 
   const red = {
     alimentos: {
@@ -102,9 +104,9 @@ module.exports = (req, res) => {
       if (!info?.uva) {
         return res.status(200).json({
           fulfillmentText: elegir([
-            `Mmm… revisé mi red y no encuentro la uva asociada a ${vinoRaw || "ese vino"}. ¿Me lo puedes escribir tal cual aparece?`,
-            `Todavía no tengo registrada la uva de ${vinoRaw || "ese vino"}. Si quieres, prueba con CabernetReserva, ChardonnayPremium o RoseGrajales.`,
-            `No me aparece la relación HECHO_DE para ${vinoRaw || "ese vino"}. ¿Cuál vino es exactamente?`
+            `Mmm… revisé mi catálogo y no encuentro la uva asociada a ${vinoDe}. ¿Me lo puedes escribir tal cual aparece?`,
+            `Todavía no tengo registrada la uva de ${vinoDe}. Si quieres, prueba con CabernetReserva, ChardonnayPremium o RoseGrajales.`,
+            `No me aparece esa información para ${vinoDe}. ¿Cuál vino es exactamente?`
           ])
         });
       }
@@ -126,9 +128,9 @@ module.exports = (req, res) => {
       if (vinosHechosDe.length === 0) {
         return res.status(200).json({
           fulfillmentText: elegir([
-            `Busqué por ${uvaRaw || "esa uva"} y no encontré vinos asociados. ¿Te refieres a Cabernet Sauvignon o Chardonnay?`,
-            `Por ahora mi red no tiene vinos hechos con ${uvaRaw || "esa uva"}. Si me dices otra uva, lo intento.`,
-            `No encuentro coincidencias para ${uvaRaw || "esa uva"}. Ojo: ayuda escribirla tal cual (por ejemplo: "Cabernet Sauvignon").`
+            `Busqué por ${uvaDe} y no encontré vinos asociados. ¿Te refieres a Cabernet Sauvignon o Chardonnay?`,
+            `Por ahora no tengo vinos hechos con ${uvaDe}. Si me dices otra uva, lo intento.`,
+            `No encuentro coincidencias para ${uvaDe}. Ojo: ayuda escribirla tal cual (por ejemplo: "Cabernet Sauvignon").`
           ])
         });
       }
@@ -159,9 +161,9 @@ module.exports = (req, res) => {
     if (!categoria) {
       return res.status(200).json({
         fulfillmentText: elegir([
-          `Todavía no tengo "${alimentoRaw || params.alimento || "ese alimento"}" en mi red de comidas. ¿Te va bien si lo intentamos con pescado, mariscos, carne roja o pasta?`,
-          `No reconozco "${alimentoRaw || params.alimento || "eso"}" como categoría en la red. Dame una pista: ¿es pescado, mariscos, carne roja o pasta?`,
-          `Me faltó ese nodo de comida: "${alimentoRaw || params.alimento || "eso"}". Prueba con salmón/pescado, mariscos, carne roja o pasta y te recomiendo algo.`
+          `Todavía no tengo ${platoDe} en mi guía de maridajes. ¿Te va bien si lo intentamos con pescado, mariscos, carne roja o pasta?`,
+          `No ubico ${platoDe} como categoría conocida. Dame una pista: ¿es pescado, mariscos, carne roja o pasta?`,
+          `Aún no tengo registrado ${platoDe}. Prueba con salmón/pescado, mariscos, carne roja o pasta y te recomiendo algo.`
         ])
       });
     }
@@ -183,18 +185,18 @@ module.exports = (req, res) => {
     if (!info) {
       return res.status(200).json({
         fulfillmentText: elegir([
-          `No me aparece "${vinoRaw || params.vino || "ese vino"}" en la red todavía. ¿Probamos con CabernetReserva, ChardonnayPremium o RoseGrajales?`,
-          `Todavía no tengo a "${vinoRaw || params.vino || "ese vino"}" en mi lista. Dime otro vino y con gusto te cuento su tipo, uva y perfil.`,
-          `No encuentro "${vinoRaw || params.vino || "ese vino"}". Si me lo escribes exacto, lo vuelvo a intentar.`
+          `No me aparece ${vinoDe} en la lista todavía. ¿Probamos con CabernetReserva, ChardonnayPremium o RoseGrajales?`,
+          `Todavía no tengo registrado ${vinoDe}. Dime otro vino y con gusto te cuento su tipo, uva y perfil.`,
+          `No encuentro ${vinoDe}. Si me lo escribes exacto, lo vuelvo a intentar.`
         ])
       });
     }
 
     return res.status(200).json({
       fulfillmentText: elegir([
-        `Te cuento: ${vinoRaw || params.vino || "ese vino"} es un ${info.tipo}. Está elaborado con ${info.uva} y su perfil es ${info.perfil}.`,
-        `En resumen, ${vinoRaw || params.vino || "ese vino"} es un ${info.tipo} de perfil ${info.perfil}, elaborado con ${info.uva}.`,
-        `Perfecto: ${vinoRaw || params.vino || "ese vino"} es un ${info.tipo}, hecho con ${info.uva}, y con un perfil ${info.perfil}. ¿Quieres que te sugiera un platillo para acompañarlo?`
+        `Te cuento: ${vinoDe} es un ${info.tipo}. Está elaborado con ${info.uva} y su perfil es ${info.perfil}.`,
+        `En resumen, ${vinoDe} es un ${info.tipo} de perfil ${info.perfil}, elaborado con ${info.uva}.`,
+        `Perfecto: ${vinoDe} es un ${info.tipo}, hecho con ${info.uva}, y con un perfil ${info.perfil}. ¿Quieres que te sugiera un platillo para acompañarlo?`
       ])
     });
   }
@@ -205,9 +207,9 @@ module.exports = (req, res) => {
     if (!info) {
       return res.status(200).json({
         fulfillmentText: elegir([
-          `No ubico "${bodegaRaw || params.bodega || "esa bodega"}" en mi red todavía. ¿Te refieres a Casa Grajales o Bodega Andes?`,
-          `Mmm… esa bodega no me aparece: "${bodegaRaw || params.bodega || "esa bodega"}". Prueba con "Casa Grajales" o "Bodega Andes".`,
-          `No tengo registrada la bodega "${bodegaRaw || params.bodega || "esa bodega"}". Si me das el nombre exacto, la busco de nuevo.`
+          `No ubico ${bodegaDe} en mi lista todavía. ¿Te refieres a Casa Grajales o Bodega Andes?`,
+          `Mmm… esa bodega no me aparece: ${bodegaDe}. Prueba con "Casa Grajales" o "Bodega Andes".`,
+          `Todavía no tengo registrada ${bodegaDe}. Si me das el nombre exacto, la busco de nuevo.`
         ])
       });
     }
