@@ -17,11 +17,13 @@ module.exports = (req, res) => {
   const vinoParam = params.vino || params.Vino || "$vino.original";
   const uvaParam = params.uva || params.Uva || params.uvA || params.UVA || "$uva.original";
   const bodegaParam = params.bodega || params.Bodega || "$bodega.original";
+  const perfilParam = params.perfil || params.Perfil || "$perfil.original";
 
   const platoDe = `el plato de ${alimentoParam}`;
   const vinoDe = `el vino ${vinoParam}`;
   const uvaDe = `la uva ${uvaParam}`;
   const bodegaDe = `la bodega ${bodegaParam}`;
+  const perfilDe = `el perfil ${perfilParam}`;
   const tipoVinoParam = params.tipo || params.Tipo || params.tipo_vino || params.tipoVino || "";
   const tipoVinoDe = tipoVinoParam ? `el ${tipoVinoParam}` : "ese tipo de vino";
 
@@ -128,6 +130,98 @@ module.exports = (req, res) => {
         `¡Claro! Puedo decirte la uva de un vino o, al revés, qué vinos se hacen con una uva. Ejemplos: "¿De qué uva está hecho CabernetReserva?" o "¿Qué vinos usan Chardonnay?"`,
         `Dime un vino (CabernetReserva, ChardonnayPremium, RoseGrajales) o una uva (Cabernet Sauvignon, Chardonnay) y con gusto te lo confirmo.`,
         `¿Te sirve más empezar por el vino o por la uva? Con cualquiera de las dos opciones te respondo.`
+      ])
+    });
+  }
+
+  // Intent: consultar.perfil
+  // Soporta:
+  // - "¿Qué perfil tiene ChardonnayPremium?" (vino -> perfil)
+  // - "¿Qué perfil tiene el vino tinto/blanco/rosado?" (tipo -> perfil)
+  // - "¿Qué vino tiene perfil tánico?" / "¿Qué vino es ácido?" (perfil -> vinos)
+  if (intentNormalizado.includes("consultar") && intentNormalizado.includes("perfil")) {
+    const perfilNormalizado = normalizar(perfilParam === "$perfil.original" ? "" : perfilParam);
+
+    // 1) Si el usuario dio un perfil, devolvemos vinos con ese perfil
+    if (perfilNormalizado) {
+      const perfilCanonico =
+        perfilNormalizado.includes("tanico") ? "Tánico" :
+        perfilNormalizado.includes("acido") ? "Ácido" :
+        perfilNormalizado.includes("afrutado") ? "Afrutado" :
+        perfilNormalizado.includes("seco") ? "Seco" :
+        "";
+
+      const vinosConPerfil = Object.entries(red.vinos)
+        .filter(([, info]) => normalizar(info?.perfil) === normalizar(perfilCanonico))
+        .map(([k]) => desnormalizarVino(k));
+
+      if (!perfilCanonico || vinosConPerfil.length === 0) {
+        return res.status(200).json({
+          fulfillmentText: elegir([
+            `Busqué por ${perfilDe} y no encontré vinos asociados todavía. Si me dices otro perfil (seco, ácido, afrutado o tánico), lo intento de nuevo.`,
+            `Por ahora no tengo vinos registrados con ${perfilDe}. ¿Quieres probar con "ácido" o "tánico"?`,
+            `No encontré coincidencias para ${perfilDe}. Prueba con seco, ácido, afrutado o tánico.`
+          ])
+        });
+      }
+
+      return res.status(200).json({
+        fulfillmentText: elegir([
+          `Si buscas ${perfilDe}, estos vinos te pueden gustar: ${formatearLista(vinosConPerfil)}.`,
+          `Claro: con ${perfilDe} tengo registrados ${formatearLista(vinosConPerfil)}. ¿Quieres que te recomiende uno según ${platoDe}?`,
+          `Perfecto, para ${perfilDe} te sugiero mirar ${formatearLista(vinosConPerfil)}. ¿Te interesa saber la uva de alguno?`
+        ])
+      });
+    }
+
+    // 2) Si el usuario dio un vino (nombre o "vino blanco/tinto/rosado"), devolvemos el perfil
+    const vinoTexto = String(params.vino || params.Vino || "").trim();
+    const vinoTextoNorm = normalizar(vinoTexto);
+
+    // Caso 2a: vino específico (coincide con red.vinos por clave)
+    if (vino) {
+      const info = red.vinos[vino];
+      if (info?.perfil) {
+        return res.status(200).json({
+          fulfillmentText: elegir([
+            `Para ${vinoDe}, el perfil es ${info.perfil}. Si quieres, también te cuento su tipo (${info.tipo}) y su uva (${info.uva}).`,
+            `El estilo de ${vinoDe} va por el lado ${info.perfil}. ¿Lo vas a acompañar con ${platoDe}?`,
+            `${vinoDe} presenta un perfil ${info.perfil}. ¿Te gustaría una recomendación de maridaje?`
+          ])
+        });
+      }
+    }
+
+    // Caso 2b: tipo de vino (vino blanco/tinto/rosado)
+    const tipoCanonico =
+      vinoTextoNorm.includes("tinto") ? "Vino Tinto" :
+      vinoTextoNorm.includes("blanco") ? "Vino Blanco" :
+      (vinoTextoNorm.includes("rosado") || vinoTextoNorm.includes("rose")) ? "Vino Rosado" :
+      "";
+
+    if (tipoCanonico) {
+      const perfiles = Object.values(red.vinos)
+        .filter((info) => normalizar(info?.tipo) === normalizar(tipoCanonico))
+        .map((info) => info?.perfil)
+        .filter(Boolean);
+      const perfilTipo = perfiles[0] || "";
+
+      if (perfilTipo) {
+        return res.status(200).json({
+          fulfillmentText: elegir([
+            `En general, ${vinoTexto} suele ir con un perfil ${perfilTipo}. ¿Quieres que te recomiende un vino específico?`,
+            `Para ${vinoTexto}, el perfil que tenemos registrado es ${perfilTipo}. ¿Buscas algo similar o algo diferente?`,
+            `Si hablamos de ${vinoTexto}, el perfil típico es ${perfilTipo}. Si me dices ${platoDe}, te hago una recomendación rápida.`
+          ])
+        });
+      }
+    }
+
+    return res.status(200).json({
+      fulfillmentText: elegir([
+        `¡Claro! Dime un vino (por ejemplo ChardonnayPremium) o un tipo (vino tinto/blanco/rosado), o dime un perfil (seco, ácido, afrutado, tánico) y te respondo.`,
+        `¿Qué te interesa: el perfil de un vino, o qué vinos encajan con un perfil? Puedo trabajar con seco, ácido, afrutado o tánico.`,
+        `Para ayudarte: dime el vino o el perfil (seco/ácido/afrutado/tánico) y lo reviso.`
       ])
     });
   }
