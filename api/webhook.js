@@ -22,6 +22,8 @@ module.exports = (req, res) => {
   const vinoDe = `el vino ${vinoParam}`;
   const uvaDe = `la uva ${uvaParam}`;
   const bodegaDe = `la bodega ${bodegaParam}`;
+  const tipoVinoParam = params.tipo || params.Tipo || params.tipo_vino || params.tipoVino || "";
+  const tipoVinoDe = tipoVinoParam ? `el ${tipoVinoParam}` : "ese tipo de vino";
 
   const red = {
     alimentos: {
@@ -201,6 +203,57 @@ module.exports = (req, res) => {
     });
   }
 
+  // Intent: consultar.bodega (incluye preguntas tipo "¿qué bodega produce vino tinto/blanco/rosado?")
+  if (intentNormalizado.includes("consultar") && intentNormalizado.includes("bodega")) {
+    // En tu agente, a veces el parámetro `vino` trae "vino blanco/tinto/rosado".
+    // Tomamos primero un `tipo` explícito, y si no, reutilizamos `vino`.
+    const tipoTexto = String(tipoVinoParam || params.vino || params.Vino || "").trim();
+    const tipoNormalizado = normalizar(tipoTexto);
+
+    const tipoCanonico =
+      tipoNormalizado.includes("tinto") ? "Vino Tinto" :
+      tipoNormalizado.includes("blanco") ? "Vino Blanco" :
+      (tipoNormalizado.includes("rosado") || tipoNormalizado.includes("rose")) ? "Vino Rosado" :
+      "";
+
+    if (!tipoCanonico) {
+      return res.status(200).json({
+        fulfillmentText: elegir([
+          `¡Con gusto! ¿Buscas ${bodegaDe} de vino tinto, blanco o rosado?`,
+          `Claro. Para ayudarte mejor, dime qué tipo de vino te interesa: tinto, blanco o rosado.`,
+          `Perfecto, ¿qué estilo buscas: vino tinto, vino blanco o vino rosado?`
+        ])
+      });
+    }
+
+    const bodegasQueProducen = Object.entries(red.bodegas)
+      .filter(([, b]) => {
+        const vinosBodega = (b?.vinos || []).map((v) => normalizar(v));
+        return vinosBodega.some((vk) => normalizar(red.vinos[vk]?.tipo) === normalizar(tipoCanonico));
+      })
+      .map(([k]) => k);
+
+    const bodegasBonitas = Array.from(new Set(bodegasQueProducen)).map(desnormalizarBodega);
+
+    if (bodegasBonitas.length === 0) {
+      return res.status(200).json({
+        fulfillmentText: elegir([
+          `Por ahora no tengo registrada ninguna bodega con ${tipoTexto || tipoVinoDe}. Si quieres, puedo mostrarte las bodegas que sí tengo en catálogo.`,
+          `De momento no me aparece una bodega que produzca ${tipoTexto || tipoVinoDe}. ¿Quieres que te diga qué bodegas tengo disponibles?`,
+          `No encontré bodegas asociadas a ${tipoTexto || tipoVinoDe}. Si me dices otra categoría (tinto/blanco/rosado), lo intento de nuevo.`
+        ])
+      });
+    }
+
+    return res.status(200).json({
+      fulfillmentText: elegir([
+        `Para ${tipoTexto || tipoVinoDe}, te puedo recomendar estas bodegas: ${formatearLista(bodegasBonitas)}. ¿Quieres que te sugiera un vino de alguna?`,
+        `Si estás buscando ${tipoTexto || tipoVinoDe}, nuestras bodegas que aparecen con ese estilo son ${formatearLista(bodegasBonitas)}.`,
+        `Claro: para ${tipoTexto || tipoVinoDe}, tengo registradas estas bodegas: ${formatearLista(bodegasBonitas)}. ¿Te interesa una recomendación según ${platoDe}?`
+      ])
+    });
+  }
+
   if (intentNormalizado.includes("bodega")) {
     const info = red.bodegas[bodega];
 
@@ -244,6 +297,15 @@ function desnormalizarVino(clave) {
   // Mínimo para que "cabernetreserva" -> "CabernetReserva"
   // y "chardonnaypremium" -> "ChardonnayPremium"
   const s = String(clave || "").trim();
+  if (!s) return s;
+  return s[0].toUpperCase() + s.slice(1);
+}
+
+function desnormalizarBodega(clave) {
+  const s = String(clave || "").trim();
+  const n = normalizar(s);
+  if (n === "casagrajales" || n === "casa grajales") return "Casa Grajales";
+  if (n === "bodegaandes" || n === "bodega andes") return "Bodega Andes";
   if (!s) return s;
   return s[0].toUpperCase() + s.slice(1);
 }
