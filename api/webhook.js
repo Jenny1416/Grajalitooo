@@ -16,7 +16,8 @@ const {
   normalizarRegion,
   capitalizar,
   resolverClaveVinoCatalogo,
-  dedupeNombres
+  dedupeNombres,
+  buscarBodegasPorVino
 } = require("./webhook.utils");
 // #endregion
 
@@ -324,9 +325,9 @@ module.exports = (req, res) => {
     const recomendacion = red.recomendaciones[categoria];
 
     return reply([
-      `¡Vamos a maridar! Para ${platoDe}, mi apuesta es ${recomendacion.vino}: ${recomendacion.descripcion}.`,
-      `Con ${platoDe} yo me iría por ${recomendacion.vino}. Suele funcionar muy bien porque es ${recomendacion.descripcion}.`,
-      `Si quieres una combinación fácil de acertar: ${recomendacion.vino}. Va muy bien con ${platoDe} porque es ${recomendacion.descripcion}.`
+      `¡Vamos a maridar! Para ${platoDe} (categoría ${categoria}), mi apuesta es ${recomendacion.vino}: ${recomendacion.descripcion}.`,
+      `Con ${platoDe}, que entra en ${categoria}, yo me iría por ${recomendacion.vino}. Suele funcionar muy bien porque es ${recomendacion.descripcion}.`,
+      `Si quieres una combinación fácil de acertar para ${platoDe} dentro de ${categoria}: ${recomendacion.vino}. Va muy bien porque es ${recomendacion.descripcion}.`
     ]);
   }
 
@@ -348,18 +349,24 @@ module.exports = (req, res) => {
 
     if (claveVinResuelta) {
       const info = red.vinos[claveVinResuelta];
+      const bodegasDelVino = dedupeNombres(
+        buscarBodegasPorVino(red.bodegas, claveVinResuelta).map(desnormalizarBodega)
+      );
+      const datoBodega = bodegasDelVino.length
+        ? ` y se produce en ${formatearLista(bodegasDelVino)}`
+        : "";
       const muestraVin = mencionar(etiquetaVin, (v) => `el vino ${v}`, "ese vino");
       const textosDefault = [
-        `Te cuento: ${muestraVin} es un ${info.tipo}. Está elaborado con ${info.uva} y su perfil es ${info.perfil}.`,
-        `En resumen, ${muestraVin} es un ${info.tipo} de perfil ${info.perfil}, elaborado con ${info.uva}.`,
-        `Perfecto: ${muestraVin} es un ${info.tipo}, hecho con ${info.uva}, y con un perfil ${info.perfil}. ¿Quieres que te sugiera un platillo para acompañarlo?`
+        `Te cuento: ${muestraVin} es un ${info.tipo}, está elaborado con ${info.uva}, tiene perfil ${info.perfil}${datoBodega}.`,
+        `En resumen, ${muestraVin} es un ${info.tipo}, elaborado con ${info.uva}, de perfil ${info.perfil}${datoBodega}.`,
+        `Perfecto: ${muestraVin} es un ${info.tipo}, hecho con ${info.uva}, con perfil ${info.perfil}${datoBodega}. ¿Quieres que te sugiera un platillo para acompañarlo?`
       ];
       const textoNombre = etiquetaVin || desnormalizarVino(claveVinResuelta);
       const textoNombreMencion = mencionar(textoNombre, (v) => `el vino ${v}`, "ese vino");
       const textosContinuo = [
-        `${capitalizar(textoNombre)}: ${info.tipo}, uva ${info.uva}, perfil ${info.perfil}. ¿Otro nombre?`,
-        `Listo. ${textoNombreMencion} viene como ${info.tipo}, sobre ${info.uva}, rasgo ${info.perfil}.`,
-        `${textoNombreMencion} lo tengo así: tipo ${info.tipo}, perfil ${info.perfil}, uva ${info.uva}.`
+        `${capitalizar(textoNombre)}: ${info.tipo}, uva ${info.uva}, perfil ${info.perfil}${datoBodega}. ¿Otro nombre?`,
+        `Listo. ${textoNombreMencion} viene como ${info.tipo}, sobre ${info.uva}, rasgo ${info.perfil}${datoBodega}.`,
+        `${textoNombreMencion} lo tengo así: tipo ${info.tipo}, perfil ${info.perfil}, uva ${info.uva}${datoBodega}.`
       ];
       return reply(modoContinuarTipoVino ? textosContinuo : textosDefault);
     }
@@ -405,8 +412,46 @@ module.exports = (req, res) => {
   }
 
   // Intent: consultar.bodega
-  // Lista bodegas por tipo de vino y sugiere siguientes pasos.
+  // Cubre dos direcciones: bodega -> vinos y vino -> bodega.
+  // También permite filtrar por tipo de vino.
   if (intentTiene("consultar", "bodega")) {
+    const bodegaKey = normalizarClave(bodegaParam);
+    const infoBodega = bodegaKey ? red.bodegas[bodegaKey] : null;
+    if (infoBodega) {
+      const vinosConDetalle = (infoBodega.vinos || [])
+        .map((v) => {
+          const key = normalizarClave(v);
+          const inf = red.vinos[key];
+          if (!inf) return String(v);
+          return `${v} (${inf.tipo}, ${inf.uva}, perfil ${inf.perfil})`;
+        });
+      return reply([
+        `En ${bodegaDe} se producen estos vinos: ${formatearLista(vinosConDetalle)}.`,
+        `${bodegaDe} trabaja con ${formatearLista(vinosConDetalle)}. Si quieres, te recomiendo uno según ${platoDe}.`,
+        `De ${bodegaDe} tengo registrados ${formatearLista(vinosConDetalle)}. ¿Quieres que comparemos dos?`
+      ]);
+    }
+
+    const vinoKeyConsulta = normalizarClave(vinoParam);
+    const infoVinoConsulta = vinoKeyConsulta ? red.vinos[vinoKeyConsulta] : null;
+    if (infoVinoConsulta) {
+      const bodegasDelVino = dedupeNombres(
+        buscarBodegasPorVino(red.bodegas, vinoKeyConsulta).map(desnormalizarBodega)
+      );
+      if (bodegasDelVino.length === 0) {
+        return reply([
+          `Tengo ${vinoDe} como ${infoVinoConsulta.tipo}, elaborado con ${infoVinoConsulta.uva} y perfil ${infoVinoConsulta.perfil}, pero sin bodega asociada todavía.`,
+          `${vinoDe} sí aparece en catálogo (${infoVinoConsulta.tipo}, ${infoVinoConsulta.uva}, perfil ${infoVinoConsulta.perfil}), aunque aún no tengo la bodega registrada.`,
+          `Me figura ${vinoDe} con tipo ${infoVinoConsulta.tipo}, uva ${infoVinoConsulta.uva} y perfil ${infoVinoConsulta.perfil}, pero me falta su bodega.`
+        ]);
+      }
+      return reply([
+        `${vinoDe} se produce en ${formatearLista(bodegasDelVino)}. Además, está registrado como ${infoVinoConsulta.tipo}, hecho con ${infoVinoConsulta.uva} y de perfil ${infoVinoConsulta.perfil}.`,
+        `La bodega de ${vinoDe} es ${formatearLista(bodegasDelVino)}. En mi red, ${vinoDe} aparece como ${infoVinoConsulta.tipo}, con uva ${infoVinoConsulta.uva} y perfil ${infoVinoConsulta.perfil}.`,
+        `Para ${vinoDe}, tengo como productor ${formatearLista(bodegasDelVino)}; el vino está descrito como ${infoVinoConsulta.tipo}, elaborado con ${infoVinoConsulta.uva}, perfil ${infoVinoConsulta.perfil}.`
+      ]);
+    }
+
     // En tu agente, a veces el parámetro `vino` trae "vino blanco/tinto/rosado".
     // Tomamos primero un `tipo` explícito, y si no, reutilizamos `vino`.
     const tipoTexto = String(tipoVinoParam || params.vino || params.Vino || "").trim();

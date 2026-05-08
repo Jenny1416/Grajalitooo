@@ -161,6 +161,16 @@ function dedupeNombres(items) {
   return out;
 }
 
+function buscarBodegasPorVino(redBodegas, vinoClave) {
+  const objetivo = normalizarClave(vinoClave);
+  if (!objetivo) return [];
+  return Object.entries(redBodegas || {})
+    .filter(([, b]) =>
+      (b?.vinos || []).some((v) => normalizarClave(v) === objetivo)
+    )
+    .map(([k]) => k);
+}
+
 module.exports = {
   normalizar,
   normalizarClave,
@@ -177,5 +187,6 @@ module.exports = {
   normalizarRegion,
   capitalizar,
   resolverClaveVinoCatalogo,
-  dedupeNombres
+  dedupeNombres,
+  buscarBodegasPorVino
 };
