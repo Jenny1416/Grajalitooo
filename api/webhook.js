@@ -176,12 +176,19 @@ module.exports = (req, res) => {
     });
   }
 
-  // Intent: consultar.perfil
+  // Intent: consultar.perfil · continuar.perfil
   // Soporta:
   // - "¿Qué perfil tiene ChardonnayPremium?" (vino -> perfil)
   // - "¿Qué perfil tiene el vino tinto/blanco/rosado?" (tipo -> perfil)
   // - "¿Qué vino tiene perfil tánico?" / "¿Qué vino es ácido?" (perfil -> vinos)
-  if (intentNormalizado.includes("consultar") && intentNormalizado.includes("perfil")) {
+  // - continuación tras consultar perfil: "¿y qué hay del vino rosado?", "¿y el vino blanco?"
+  const esIntentPerfil =
+    (intentNormalizado.includes("consultar") || intentNormalizado.includes("continuar")) &&
+    intentNormalizado.includes("perfil");
+
+  if (esIntentPerfil) {
+    const modoContinuarPerfil = intentNormalizado.includes("continuar");
+
     // A veces Dialogflow rellena `perfil` con algo genérico ("perfil") aunque el usuario
     // realmente esté preguntando por el perfil de un vino. Por eso:
     // - Priorizamos vino/tipo_vino primero
@@ -199,12 +206,18 @@ module.exports = (req, res) => {
     if (vino) {
       const info = red.vinos[vino];
       if (info?.perfil) {
+        const textosConsulta = [
+          `Para ${vinoDe}, el perfil es ${info.perfil}. Si quieres, también te cuento su tipo (${info.tipo}) y su uva (${info.uva}).`,
+          `El estilo de ${vinoDe} va por el lado ${info.perfil}. ¿Lo vas a acompañar con ${platoDe}?`,
+          `${vinoDe} presenta un perfil ${info.perfil}. ¿Te gustaría una recomendación de maridaje?`
+        ];
+        const textosContinuar = [
+          `Por supuesto, siguiendo con la misma conversación sobre perfiles: ${vinoDe} lo tengo relacionado como un ${info.tipo}, elaborado con ${info.uva}, y ese estilo llega hasta el nodo de perfil que registramos como ${info.perfil}. Es la pieza TIENE_PERFIL que conecta ese vino con lo que esperas encontrar en boca.`,
+          `Sí; sobre ${vinoDe}, no solo el nombre sino también lo que comunica sensorialmente: clasificado como ${info.tipo}, sobre ${info.uva}, la red lo coloca sobre todo en un rasgo ${info.perfil}. Cuando compares con otros vinos parecidos, ese punto del perfil es el que marca la diferencia.`,
+          `Con gusto, retomando: si enfocamos el detalle en ${vinoDe}, el vínculo claro va hacia ${info.perfil}: es cómo aparece en la red después de atravesar su tipo (${info.tipo}) y la uva (${info.uva}). Si quieres, el siguiente paso natural es ver con qué comida suele combinarse mejor.`
+        ];
         return res.status(200).json({
-          fulfillmentText: elegir([
-            `Para ${vinoDe}, el perfil es ${info.perfil}. Si quieres, también te cuento su tipo (${info.tipo}) y su uva (${info.uva}).`,
-            `El estilo de ${vinoDe} va por el lado ${info.perfil}. ¿Lo vas a acompañar con ${platoDe}?`,
-            `${vinoDe} presenta un perfil ${info.perfil}. ¿Te gustaría una recomendación de maridaje?`
-          ])
+          fulfillmentText: elegir(modoContinuarPerfil ? textosContinuar : textosConsulta)
         });
       }
     }
@@ -228,19 +241,31 @@ module.exports = (req, res) => {
               : tipoCanonico;
 
     if (tipoCanonico) {
-      const perfiles = Object.values(red.vinos)
-        .filter((info) => normalizar(info?.tipo) === normalizar(tipoCanonico))
-        .map((info) => info?.perfil)
-        .filter(Boolean);
+      const registrosTipo = Object.entries(red.vinos).filter(
+        ([, info]) => normalizar(info?.tipo) === normalizar(tipoCanonico)
+      );
+      const perfiles = registrosTipo.map(([, inf]) => inf?.perfil).filter(Boolean);
       const perfilTipo = perfiles[0] || "";
+      const ejemploVinosTipo = registrosTipo.map(([k]) => desnormalizarVino(k)).filter(Boolean);
+      const ejemploListaTipo = formatearLista(ejemploVinosTipo);
 
       if (perfilTipo) {
+        const textosTipoConsulta = [
+          `En general, ${etiquetaTipoUsuario} suele ir con un perfil ${perfilTipo}. ¿Quieres que te recomiende un vino específico?`,
+          `Para ${etiquetaTipoUsuario}, el perfil que tenemos registrado es ${perfilTipo}. ¿Buscas algo similar o algo diferente?`,
+          `Si hablamos de ${etiquetaTipoUsuario}, el perfil típico es ${perfilTipo}. Si me dices ${platoDe}, te hago una recomendación rápida.`
+        ];
+        const ejemplosPorTipo =
+          ejemploListaTipo.length > 0
+            ? `. En nuestra muestra aparecen etiquetas como ${ejemploListaTipo}, que sirven bien para ejemplificar ese estilo.`
+            : "";
+        const textosTipoContinuar = [
+          `Buenísimo cambiar la lente así: cuando pasamos a ${etiquetaTipoUsuario}, en esta red ese tipo queda atravesado sobre todo por lo que denominamos perfil ${perfilTipo}${ejemplosPorTipo} Piénsalo como el mismo tipo de vino heredando, en estos ejemplares, ese rasgo antes de pensar maridajes.`,
+          `Sí; sobre ${etiquetaTipoUsuario}, la lectura rápida en la tabla es esa vinculación con ${perfilTipo}${ejemplosPorTipo} Como seguimos charlando después de otro estilo, esos ejemplos concretos ayudan a ordenar bien la comparación.`,
+          `Con gusto, retomando: ${etiquetaTipoUsuario}, en nuestra colección lo vemos ligado a ${perfilTipo}${ejemplosPorTipo} Desde una red semántica, primero ubicarías el tipo (por ejemplo rosado frente al blanco) y después TIENE_PERFIL cuenta la tonalidad que repetimos al mirar estos vinos en particular.`
+        ];
         return res.status(200).json({
-          fulfillmentText: elegir([
-            `En general, ${etiquetaTipoUsuario} suele ir con un perfil ${perfilTipo}. ¿Quieres que te recomiende un vino específico?`,
-            `Para ${etiquetaTipoUsuario}, el perfil que tenemos registrado es ${perfilTipo}. ¿Buscas algo similar o algo diferente?`,
-            `Si hablamos de ${etiquetaTipoUsuario}, el perfil típico es ${perfilTipo}. Si me dices ${platoDe}, te hago una recomendación rápida.`
-          ])
+          fulfillmentText: elegir(modoContinuarPerfil ? textosTipoContinuar : textosTipoConsulta)
         });
       }
     }
@@ -259,30 +284,50 @@ module.exports = (req, res) => {
         .map(([k]) => desnormalizarVino(k));
 
       if (vinosConPerfil.length === 0) {
+        const listaVaciaConsulta = [
+          `Busqué por ${perfilDe} y no encontré vinos asociados todavía. Si me dices otro perfil (seco, ácido, afrutado o tánico), lo intento de nuevo.`,
+          `Por ahora no tengo vinos registrados con ${perfilDe}. ¿Quieres probar con "ácido" o con "tánico"?`,
+          `No encontré coincidencias para ${perfilDe}. Prueba con seco, ácido, afrutado o tánico.`
+        ];
+        const listaVaciaContinuar = [
+          `Ya te voy siguiendo, pero sobre ${perfilDe} esta vez mi catálogo no devolvió etiquetas enlazadas. Repasa si quisiste otro rasgo cercano —por ejemplo algo más cercano a fresco (ácido), estructura (tánico), sequedad en boca (seco) o notas frutales (afrutado)— y volvemos a cruzarlo con TIENE_PERFIL.`,
+          `Sigo el hilo pero no encuentro vínculos concretos entre ${perfilDe} y un vino en stock: en estos casos suele tratarse del nombre del perfil o de que falta parametrizarlo en Dialogflow; dime cualquiera de seco, ácido, afrutado o tánico y lo vuelvo a buscar.`,
+          `Interesante la continuación sobre ${perfilDe}, solo que en la muestra cargada nadie cayó bien en esa clase. Prueba repetir solo el adjetivo (por ejemplo “tánico”) o combinar después con un tipo tinto, blanco o rosado como hicimos recién con la otra categoría.`
+        ];
         return res.status(200).json({
-          fulfillmentText: elegir([
-            `Busqué por ${perfilDe} y no encontré vinos asociados todavía. Si me dices otro perfil (seco, ácido, afrutado o tánico), lo intento de nuevo.`,
-            `Por ahora no tengo vinos registrados con ${perfilDe}. ¿Quieres probar con "ácido" o "tánico"?`,
-            `No encontré coincidencias para ${perfilDe}. Prueba con seco, ácido, afrutado o tánico.`
-          ])
+          fulfillmentText: elegir(modoContinuarPerfil ? listaVaciaContinuar : listaVaciaConsulta)
         });
       }
 
+      const listaPerfilVin = formatearLista(vinosConPerfil);
+      const perfilCanonicoMsgs = modoContinuarPerfil
+        ? [
+            `Dale; si quieres seguir navegando perfiles después de lo anterior: ${perfilDe} en nuestra tabla cae así en ${listaPerfilVin}. Es prácticamente navegar TIENE_PERFIL al revés, primero eliges rasgo sensorial y después ves qué etiquetas aparecen.`,
+            `Bien preguntado a continuación: para ${perfilDe} estos son los registros disponibles como ejemplares: ${listaPerfilVin}. Si ya tenías otro tipo en mente por contraste con el último rosado o blanco o tinto, lo podemos cruzar y ver cuál casa mejor con ${platoDe}.`,
+            `Te entiendo en el modo “y además”: si enfocamos en ${perfilDe}, estos nombres resumen lo que cargué con ese matiz ${listaPerfilVin}. Para profundizar puedes pedir cualquiera por uva o bodega y lo desarmamos en tres pasos.`
+          ]
+        : [
+            `Si buscas ${perfilDe}, estos vinos te pueden gustar: ${listaPerfilVin}.`,
+            `Claro: con ${perfilDe} tengo registrados ${listaPerfilVin}. ¿Quieres que te recomiende uno según ${platoDe}?`,
+            `Perfecto, para ${perfilDe} te sugiero mirar ${listaPerfilVin}. ¿Te interesa saber la uva de alguno?`
+          ];
       return res.status(200).json({
-        fulfillmentText: elegir([
-          `Si buscas ${perfilDe}, estos vinos te pueden gustar: ${formatearLista(vinosConPerfil)}.`,
-          `Claro: con ${perfilDe} tengo registrados ${formatearLista(vinosConPerfil)}. ¿Quieres que te recomiende uno según ${platoDe}?`,
-          `Perfecto, para ${perfilDe} te sugiero mirar ${formatearLista(vinosConPerfil)}. ¿Te interesa saber la uva de alguno?`
-        ])
+        fulfillmentText: elegir(perfilCanonicoMsgs)
       });
     }
 
+    const fallbackConsultaPerfil = [
+      `¡Claro! Dime un vino (por ejemplo ChardonnayPremium) o un tipo (vino tinto, blanco o rosado), o un perfil (seco, ácido, afrutado, tánico) y armamos la contestación.`,
+      `¿Prefieres partir de un vino concreto, de un tipo, o del perfil con una palabra entre seco, ácido, afrutado y tánico? Con cualquiera de las tres rutas te resuelvo usando la misma red.`,
+      `Para encaminarnos necesito esa pieza nueva: bien el nombre de la botella, bien el tipo, bien el rasgo sensorial como palabra corta entre las cuatro que listamos.`
+    ];
+    const fallbackContinuarPerfil = [
+      `Te sigo, pero necesito solo un poco más de contexto porque aquí perdí cuál opción querías después de lo anterior sobre perfil: ¿vamos sobre un tipo puntual, por ejemplo «¿y qué hay del rosado?», o repetimos con un rasgo tipo «algo afrutado»? Así recupero bien el siguiente nodo.`,
+      `Esto suele pasar al seguir el hilo después de perfil pero sin nueva entidad: escribe de nuevo una frase corta si vas por tinto, blanco o rosado, si nombras un vino conocido tipo RoseGrajales o ChardonnayPremium, o si insistes solo con seco, ácido, afrutado o tánico.`,
+      `Dale, continuamos como en intent consultar, pero esta vez Dialogflow no dejó nueva etiqueta entre parámetros. Vuelve como en tus frases de entrenamiento («y el blanco?», «y qué hay del rosado?») para que llegue texto claro al webhook.`
+    ];
     return res.status(200).json({
-      fulfillmentText: elegir([
-        `¡Claro! Dime un vino (por ejemplo ChardonnayPremium) o un tipo (vino tinto/blanco/rosado), o dime un perfil (seco, ácido, afrutado, tánico) y te respondo.`,
-        `¿Qué te interesa: el perfil de un vino, o qué vinos encajan con un perfil? Puedo trabajar con seco, ácido, afrutado o tánico.`,
-        `Para ayudarte: dime el vino o el perfil (seco/ácido/afrutado/tánico) y lo reviso.`
-      ])
+      fulfillmentText: elegir(modoContinuarPerfil ? fallbackContinuarPerfil : fallbackConsultaPerfil)
     });
   }
 
