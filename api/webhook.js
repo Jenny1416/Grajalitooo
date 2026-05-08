@@ -53,11 +53,12 @@ module.exports = (req, res) => {
     return intentTokensSeparados.some((tok) => tok === etiq);
   }
   const intentTiene = (...etiquetas) => etiquetas.every(intentTieneEtiqueta);
+  const intentEsContinuar = intentTieneEtiqueta("continuar") || intentTieneEtiqueta("continue");
 
   const esConsultarPerfilIntent = intentTiene("perfil", "consultar");
   const esContinuarPerfilIntent =
     intentTieneEtiqueta("perfil") &&
-    (intentTieneEtiqueta("continuar") || intentTieneEtiqueta("continue"));
+    intentEsContinuar;
 
   /** consultar.perfil ó continuar.perfil (nombre del intent suele llegar como slug sin espacios) */
   const esIntentPerfil = esConsultarPerfilIntent || esContinuarPerfilIntent;
@@ -67,7 +68,7 @@ module.exports = (req, res) => {
     (intentSlugAlfa.includes("tipo") && intentSlugAlfa.includes("vino"));
   const esContinuarTipoVinoIntent =
     esNombreIntentTipoYVino &&
-    (intentTieneEtiqueta("continuar") || intentTieneEtiqueta("continue"));
+    intentEsContinuar;
 
   const alimentoParam = param("alimento", "Alimento");
   const vinoParam = param("vino", "Vino");
@@ -84,7 +85,8 @@ module.exports = (req, res) => {
   // original de Dialogflow. En respuestas de webhook NO existe el reemplazo de $entidad.original,
   // así que si no viene el parámetro, usamos fallback “natural” (sin placeholders).
   const platoDe = mencionar(alimentoParam, (v) => `el plato de ${v}`, "el plato que mencionas");
-  const vinoDe = mencionar(vinoParam, (v) => `el vino ${v}`, "ese vino");
+  const mencionarVino = (valor) => mencionar(valor, (v) => `el vino ${v}`, "ese vino");
+  const vinoDe = mencionarVino(vinoParam);
   const uvaDe = mencionar(uvaParam, (v) => `la uva ${v}`, "esa uva");
   const bodegaDe = mencionar(bodegaParam, (v) => `la bodega ${v}`, "esa bodega");
   const perfilDe = mencionar(perfilParam, (v) => `el perfil ${v}`, "ese perfil");
@@ -109,7 +111,7 @@ module.exports = (req, res) => {
       }
 
       return reply([
-        `Claro: para ${vinoDe}, la uva es ${info.uva}. Si quieres, también te cuento su tipo (${info.tipo}) y su perfil (${info.perfil}).`,
+        `Claro: para ${vinoDe}, la uva es ${info.uva}. Si quieres, también te puedo contar su tipo y su perfil.`,
         `Te confirmo: ${vinoDe} está elaborado con ${info.uva}. ¿Lo vas a acompañar con algo? Dime ${platoDe} y te recomiendo un maridaje.`,
         `La uva de ${vinoDe} es ${info.uva}. Si te interesa, puedo decirte qué otros vinos de nuestra selección usan esa misma uva.`
       ]);
@@ -169,7 +171,7 @@ module.exports = (req, res) => {
       const info = red.vinos[vino];
       if (info?.perfil) {
         const textosConsulta = [
-          `Para ${vinoDe}, el perfil es ${info.perfil}. Si quieres, también te cuento su tipo (${info.tipo}) y su uva (${info.uva}).`,
+          `Para ${vinoDe}, el perfil es ${info.perfil}. Si quieres, también te puedo contar su tipo y su uva.`,
           `El estilo de ${vinoDe} va por el lado ${info.perfil}. ¿Lo vas a acompañar con ${platoDe}?`,
           `${vinoDe} presenta un perfil ${info.perfil}. ¿Te gustaría una recomendación de maridaje?`
         ];
@@ -359,14 +361,14 @@ module.exports = (req, res) => {
       const datoBodega = bodegasDelVino.length
         ? ` y se produce en ${formatearLista(bodegasDelVino)}`
         : "";
-      const muestraVin = mencionar(etiquetaVin, (v) => `el vino ${v}`, "ese vino");
+      const muestraVin = mencionarVino(etiquetaVin);
       const textosDefault = [
         `Te cuento: ${muestraVin} es un ${info.tipo}, está elaborado con ${info.uva}, tiene perfil ${info.perfil}${datoBodega}.`,
         `En resumen, ${muestraVin} es un ${info.tipo}, elaborado con ${info.uva}, de perfil ${info.perfil}${datoBodega}.`,
         `Perfecto: ${muestraVin} es un ${info.tipo}, hecho con ${info.uva}, con perfil ${info.perfil}${datoBodega}. ¿Quieres que te sugiera un platillo para acompañarlo?`
       ];
       const textoNombre = etiquetaVin || desnormalizarVino(claveVinResuelta);
-      const textoNombreMencion = mencionar(textoNombre, (v) => `el vino ${v}`, "ese vino");
+      const textoNombreMencion = mencionarVino(textoNombre);
       const textosContinuo = [
         `${capitalizar(textoNombre)}: ${info.tipo}, uva ${info.uva}, perfil ${info.perfil}${datoBodega}. ¿Otro nombre?`,
         `Listo. ${textoNombreMencion} viene como ${info.tipo}, sobre ${info.uva}, rasgo ${info.perfil}${datoBodega}.`,
@@ -401,7 +403,7 @@ module.exports = (req, res) => {
       return reply(modoContinuarTipoVino ? textosTipoListaCont : textosTipoListaDef);
     }
 
-    const muestraVinNoHallado = mencionar(vinoParam, (v) => `el vino ${v}`, "ese vino");
+    const muestraVinNoHallado = mencionarVino(vinoParam);
     const noHalladoDefault = [
       `No me aparece ${muestraVinNoHallado} en la lista todavía. ¿Probamos con CabernetReserva, ChardonnayPremium o RoseGrajales?`,
       `Todavía no tengo registrado ${muestraVinNoHallado}. Dime otro vino y con gusto te cuento su tipo, uva y perfil.`,
