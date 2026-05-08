@@ -143,6 +143,11 @@ module.exports = (req, res) => {
         nombre: "Región Orinoquía",
         descripcion: "una región de llanura y clima cálido; aquí te comparto opciones con carácter y buena compañía de carnes",
         vinos: ["CabernetReserva", "ZinfandelGranReserva"]
+      },
+      "caribe": {
+        nombre: "Región Caribe",
+        descripcion: "una región costera, cálida y festiva; aquí suelen disfrutarse vinos frescos y aromáticos ideales para mariscos y preparaciones tropicales",
+        vinos: ["ChardonnayPremium", "RoseGrajales"]
       }
     }
   };
