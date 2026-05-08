@@ -27,6 +27,13 @@ module.exports = (req, res) => {
   /** consultar.perfil ó continuar.perfil (nombre del intent suele llegar como slug sin espacios) */
   const esIntentPerfil = esConsultarPerfilIntent || esContinuarPerfilIntent;
 
+  const esNombreIntentTipoYVino =
+    (intentTieneEtiqueta("tipo") && intentTieneEtiqueta("vino")) ||
+    (intentSlugAlfa.includes("tipo") && intentSlugAlfa.includes("vino"));
+  const esContinuarTipoVinoIntent =
+    esNombreIntentTipoYVino &&
+    (intentTieneEtiqueta("continuar") || intentTieneEtiqueta("continue"));
+
   const params = body?.queryResult?.parameters || {};
 
   const alimento = normalizar(params.alimento || params.Alimento || "");
@@ -426,25 +433,91 @@ module.exports = (req, res) => {
     });
   }
 
-  if (intentNormalizado.includes("tipo") && intentNormalizado.includes("vino")) {
-    const info = red.vinos[vino];
+  if (esNombreIntentTipoYVino) {
+    const modoContinuarTipoVino = esContinuarTipoVinoIntent;
+    const queryTextTipo = body.queryResult?.queryText || "";
 
-    if (!info) {
+    const tipoParamPlano =
+      typeof tipoVinoParam === "string" ? tipoVinoParam.trim() : "";
+    const textoFusionTipoVinoNorm = `${normalizar(vinoParam)} ${normalizar(tipoParamPlano)} ${normalizar(queryTextTipo)}`;
+
+    const { clave: claveVinResuelta, etiquetaVin } = resolverClaveVinoCatalogo(red.vinos, {
+      textoParamVino: vinoParam,
+      textoExtra: tipoParamPlano ? tipoParamPlano : String(params.vino || params.Vino || ""),
+      queryTexto: queryTextTipo
+    });
+
+    if (claveVinResuelta) {
+      const info = red.vinos[claveVinResuelta];
+      const muestraVin = mencionarVino(etiquetaVin);
+      const textosDefault = [
+        `Te cuento: ${muestraVin} es un ${info.tipo}. Está elaborado con ${info.uva} y su perfil es ${info.perfil}.`,
+        `En resumen, ${muestraVin} es un ${info.tipo} de perfil ${info.perfil}, elaborado con ${info.uva}.`,
+        `Perfecto: ${muestraVin} es un ${info.tipo}, hecho con ${info.uva}, y con un perfil ${info.perfil}. ¿Quieres que te sugiera un platillo para acompañarlo?`
+      ];
+      const textoNombre = etiquetaVin || desnormalizarVino(claveVinResuelta);
+      const textoNombreMencion = mencionarVino(textoNombre);
+      const textosContinuo = [
+        `${capitalizar(textoNombre)}: ${info.tipo}, uva ${info.uva}, perfil ${info.perfil}. ¿Otro nombre?`,
+        `Listo. ${textoNombreMencion} viene como ${info.tipo}, sobre ${info.uva}, rasgo ${info.perfil}.`,
+        `${textoNombreMencion} lo tengo así: tipo ${info.tipo}, perfil ${info.perfil}, uva ${info.uva}.`
+      ];
       return res.status(200).json({
-        fulfillmentText: elegir([
-          `No me aparece ${vinoDe} en la lista todavía. ¿Probamos con CabernetReserva, ChardonnayPremium o RoseGrajales?`,
-          `Todavía no tengo registrado ${vinoDe}. Dime otro vino y con gusto te cuento su tipo, uva y perfil.`,
-          `No encuentro ${vinoDe}. Si me lo escribes exacto, lo vuelvo a intentar.`
-        ])
+        fulfillmentText: elegir(modoContinuarTipoVino ? textosContinuo : textosDefault)
       });
     }
 
+    const tipoCanonicoTv =
+      textoFusionTipoVinoNorm.includes("tinto") ? "Vino Tinto" :
+      textoFusionTipoVinoNorm.includes("blanco") ? "Vino Blanco" :
+      (textoFusionTipoVinoNorm.includes("rosado") || textoFusionTipoVinoNorm.includes("rose"))
+        ? "Vino Rosado" :
+      "";
+
+    if (tipoCanonicoTv) {
+      const registrosTipoVino = Object.entries(red.vinos).filter(
+        ([, vi]) => normalizar(vi?.tipo) === normalizar(tipoCanonicoTv)
+      );
+      const nombresTv = registrosTipoVino.map(([k]) => desnormalizarVino(k)).filter(Boolean);
+      const muestraEj = registrosTipoVino[0];
+      const sufijoEjemplo = muestraEj
+        ? `. Por ejemplo ${desnormalizarVino(muestraEj[0])}: perfil ${muestraEj[1].perfil}.`
+        : "";
+      const etiqTipoEsp =
+        tipoCanonicoTv === "Vino Rosado"
+          ? "el vino rosado"
+          : tipoCanonicoTv === "Vino Blanco"
+            ? "el vino blanco"
+            : "el vino tinto";
+      const listaVinTv = formatearLista(nombresTv);
+      const textosTipoListaDef = [
+        `Por ${tipoCanonicoTv.toLowerCase()}, en mi lista están ${listaVinTv}.`,
+        `${tipoCanonicoTv}: ${listaVinTv}${sufijoEjemplo}`,
+        `${etiqTipoEsp}: ${listaVinTv}${sufijoEjemplo}`
+      ];
+      const textosTipoListaCont = [
+        `Sigo: ${tipoCanonicoTv}: ${listaVinTv}${sufijoEjemplo} ¿Nombre concreto?`,
+        `${tipoCanonicoTv}: ${listaVinTv}${sufijoEjemplo}`,
+        `${etiqTipoEsp}: ${listaVinTv}${sufijoEjemplo}`
+      ];
+      return res.status(200).json({
+        fulfillmentText: elegir(modoContinuarTipoVino ? textosTipoListaCont : textosTipoListaDef)
+      });
+    }
+
+    const muestraVinNoHallado = mencionarVino(vinoParam);
+    const noHalladoDefault = [
+      `No me aparece ${muestraVinNoHallado} en la lista todavía. ¿Probamos con CabernetReserva, ChardonnayPremium o RoseGrajales?`,
+      `Todavía no tengo registrado ${muestraVinNoHallado}. Dime otro vino y con gusto te cuento su tipo, uva y perfil.`,
+      `No encuentro ${muestraVinNoHallado}. Si me lo escribes exacto, lo vuelvo a intentar.`
+    ];
+    const noHalladoCont = [
+      `No ubico ${muestraVinNoHallado}. Prueba RoseGrajales, ChardonnayPremium o CabernetReserva.`,
+      `Ese nombre no cuadra con el catálogo. ¿Lo escribes igual que en etiqueta CabernetReserva, ChardonnayPremium o RoseGrajales?`,
+      `No lo veo. Opciones rápidas: CabernetReserva, ChardonnayPremium, RoseGrajales.`,
+    ];
     return res.status(200).json({
-      fulfillmentText: elegir([
-        `Te cuento: ${vinoDe} es un ${info.tipo}. Está elaborado con ${info.uva} y su perfil es ${info.perfil}.`,
-        `En resumen, ${vinoDe} es un ${info.tipo} de perfil ${info.perfil}, elaborado con ${info.uva}.`,
-        `Perfecto: ${vinoDe} es un ${info.tipo}, hecho con ${info.uva}, y con un perfil ${info.perfil}. ¿Quieres que te sugiera un platillo para acompañarlo?`
-      ])
+      fulfillmentText: elegir(modoContinuarTipoVino ? noHalladoCont : noHalladoDefault)
     });
   }
 
@@ -615,6 +688,48 @@ function capitalizar(texto) {
   const s = String(texto || "").trim();
   if (!s) return s;
   return s[0].toUpperCase() + s.slice(1);
+}
+
+/** Empareja texto del usuario/param con las llaves de `red.vinos` (útiles cuando el vino sale en la query). */
+function resolverClaveVinoCatalogo(redVinos, { textoParamVino, textoExtra, queryTexto }) {
+  const rawVin = String(textoParamVino || "").trim();
+  const extra = String(textoExtra || "").trim();
+  const qText = String(queryTexto || "").trim();
+
+  const fusionSinEsp = normalizarClave(
+    `${normalizar(rawVin)} ${normalizar(extra)} ${normalizar(qText)}`
+  );
+
+  const keysSorted = Object.keys(redVinos).sort((a, b) => b.length - a.length);
+
+  let clave = normalizarClave(rawVin);
+  const extraPrimeraPalabra = normalizarClave(extra.split(/\s+/).filter(Boolean)[0] || "");
+
+  if (!clave || !redVinos[clave]) {
+    clave =
+      extraPrimeraPalabra && redVinos[extraPrimeraPalabra] ? extraPrimeraPalabra : "";
+  }
+
+  if (!clave || !redVinos[clave]) {
+    let hallada = "";
+    if (fusionSinEsp) {
+      for (const kk of keysSorted) {
+        if (kk && fusionSinEsp.includes(kk)) {
+          hallada = kk;
+          break;
+        }
+      }
+    }
+    clave = hallada;
+  }
+
+  if (!clave || !redVinos[clave]) {
+    return { clave: "", etiquetaVin: rawVin || extra || "" };
+  }
+
+  const bonito = desnormalizarVino(clave);
+  const etiquetaVin = rawVin && normalizarClave(rawVin) === clave ? rawVin : bonito;
+  return { clave, etiquetaVin };
 }
 
 function dedupeNombres(items) {
