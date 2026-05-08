@@ -323,11 +323,15 @@ module.exports = (req, res) => {
     }
 
     const recomendacion = red.recomendaciones[categoria];
+    const platoIncluyeCategoria = esMismoTexto(alimentoParam, categoria);
+    const contextoCategoria = platoIncluyeCategoria
+      ? ""
+      : ` dentro de la categoría ${categoria}`;
 
     return reply([
-      `¡Vamos a maridar! Para ${platoDe} (categoría ${categoria}), mi apuesta es ${recomendacion.vino}: ${recomendacion.descripcion}.`,
-      `Con ${platoDe}, que entra en ${categoria}, yo me iría por ${recomendacion.vino}. Suele funcionar muy bien porque es ${recomendacion.descripcion}.`,
-      `Si quieres una combinación fácil de acertar para ${platoDe} dentro de ${categoria}: ${recomendacion.vino}. Va muy bien porque es ${recomendacion.descripcion}.`
+      `¡Vamos a maridar! Para ${platoDe}${contextoCategoria}, mi apuesta es ${recomendacion.vino}: ${recomendacion.descripcion}.`,
+      `Con ${platoDe}${contextoCategoria}, yo me iría por ${recomendacion.vino}. Suele funcionar muy bien porque es ${recomendacion.descripcion}.`,
+      `Si quieres una combinación fácil de acertar para ${platoDe}${contextoCategoria}: ${recomendacion.vino}. Va muy bien porque es ${recomendacion.descripcion}.`
     ]);
   }
 
