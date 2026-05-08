@@ -368,9 +368,9 @@ module.exports = (req, res) => {
     if (!infoRegion) {
       return res.status(200).json({
         fulfillmentText: elegir([
-          `¡Claro! ¿De qué región te gustaría saber? Puedo ayudarte con Pacífica, Andina, Amazónica, Insular u Orinoquía.`,
-          `Con gusto. Dime la región (Pacífica, Andina, Amazónica, Insular u Orinoquía) y te digo qué vinos tengo registrados.`,
-          `¿Qué región quieres consultar? Por ejemplo: región pacífica, andina, amazónica, insular u orinoquía.`
+          `¡Claro! ¿De qué región te gustaría saber? Puedo ayudarte con Caribe, Pacífica, Andina, Amazónica, Insular u Orinoquía.`,
+          `Con gusto. Dime la región (Caribe, Pacífica, Andina, Amazónica, Insular u Orinoquía) y te digo qué vinos tengo registrados.`,
+          `¿Qué región quieres consultar? Por ejemplo: región caribe, pacífica, andina, amazónica, insular u orinoquía.`
         ])
       });
     }
@@ -681,6 +681,7 @@ function mencionarRegion(valor) {
 function normalizarRegion(valor) {
   const n = normalizar(valor);
   if (!n) return "";
+  if (n.includes("carib")) return "caribe";
   if (n.includes("pacific")) return "pacifica";
   if (n.includes("andin")) return "andina";
   if (n.includes("amaz")) return "amazonica";
